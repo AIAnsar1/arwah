@@ -1,0 +1,3 @@
+tags = ["core_approved", "example"]
+ports = ["80"]
+developer = ["example"]
