@@ -5,8 +5,8 @@ use serde::Serialize;
 
 #[derive(Debug, PartialEq, Serialize)]
 pub enum ArwahIPv6 {
-    TCP(pktparse::tcp::TcpHeader, tcp::ARWAH_TCP),
-    UDP(pktparse::udp::UdpHeader, udp::ARWAH_UDP),
+    TCP(pktparse::tcp::TcpHeader, tcp::ArwahTcp),
+    UDP(pktparse::udp::UdpHeader, udp::ArwahUdp),
     Unknown(Vec<u8>),
 }
 

@@ -34,7 +34,7 @@ pub fn arwah_parse(remaining: &[u8]) -> Result<ArwahEther, ArwahCentrifugeError>
 mod tests {
     use super::*;
     use crate::network::ipv4::ArwahIPv4;
-    use crate::network::tcp::ARWAH_TCP;
+    use crate::network::tcp::ArwahTcp;
     use pktparse::ip::IPProtocol;
     use pktparse::ipv4::IPv4Header;
     use pktparse::tcp::TcpHeader;
@@ -83,7 +83,7 @@ mod tests {
                         urgent_pointer: 0,
                         options: None,
                     },
-                    ARWAH_TCP::Binary(vec![
+                    ArwahTcp::Binary(vec![
                         0, 40, 78, 0, 0, 0, 0, 0, 3, 251, 177, 252, 25, 181, 4, 23, 100, 102, 211, 164, 79, 192, 232, 227, 130, 103, 52, 17, 8, 4, 169, 136, 247, 108, 69, 53, 165, 67, 201, 73, 66, 79
                     ],)
                 )

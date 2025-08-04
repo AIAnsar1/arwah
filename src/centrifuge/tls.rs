@@ -1,9 +1,9 @@
 use crate::network::service::ArwahCentrifugeError;
-use crate::network::tls::{ARWAH_TLS, ArwahClientHello, ArwahServerHello};
+use crate::network::tls::{ArwahClientHello, ArwahServerHello, ArwahTls};
 use std::str;
 use tls_parser::{TlsExtension, TlsMessage, TlsMessageHandshake, parse_tls_extension};
 
-pub fn arwah_extract(remaining: &[u8]) -> Result<ARWAH_TLS, ArwahCentrifugeError> {
+pub fn arwah_extract(remaining: &[u8]) -> Result<ArwahTls, ArwahCentrifugeError> {
     if let Ok((_remaining, tls)) = tls_parser::parse_tls_plaintext(remaining) {
         for msg in tls.msg {
             match msg {
@@ -20,11 +20,11 @@ pub fn arwah_extract(remaining: &[u8]) -> Result<ARWAH_TLS, ArwahCentrifugeError
                                 }
                             }
                         }
-                        return Ok(ARWAH_TLS::ClientHello(ArwahClientHello::arwah_new(&ch, hostname)));
+                        return Ok(ArwahTls::ClientHello(ArwahClientHello::arwah_new(&ch, hostname)));
                     }
                 }
                 TlsMessage::Handshake(TlsMessageHandshake::ServerHello(sh)) => {
-                    return Ok(ARWAH_TLS::ServerHello(ArwahServerHello::arwah_new(&sh)));
+                    return Ok(ArwahTls::ServerHello(ArwahServerHello::arwah_new(&sh)));
                 }
                 _ => (),
             }

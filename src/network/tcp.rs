@@ -3,17 +3,17 @@ use crate::network::{http, tls};
 use serde::Serialize;
 
 #[derive(Debug, PartialEq, Serialize)]
-pub enum ARWAH_TCP {
-    TLS(tls::ARWAH_TLS),
+pub enum ArwahTcp {
+    TLS(tls::ArwahTls),
     HTTP(http::ArwahHttp),
     Text(String),
     Binary(Vec<u8>),
     Empty,
 }
 
-impl ARWAH_TCP {
+impl ArwahTcp {
     pub fn arwah_noise_level(&self, header: &pktparse::tcp::TcpHeader) -> ArwahNoiseLevel {
-        use self::ARWAH_TCP::*;
+        use self::ArwahTcp::*;
 
         if header.flag_rst || header.flag_syn || header.flag_fin {
             match *self {

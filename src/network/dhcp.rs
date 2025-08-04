@@ -14,7 +14,7 @@ pub struct ArwahPacket {
 }
 
 #[derive(Debug, PartialEq, Serialize)]
-pub enum ARWAH_DHCP {
+pub enum ArwahDhcp {
     ACK(ArwahPacket),
     DECLINE(ArwahPacket),
     DISCOVER(ArwahPacket),

@@ -14,7 +14,7 @@ pub struct ArwahResponse {
 }
 
 #[derive(Debug, PartialEq, Serialize)]
-pub enum ARWAH_DNS {
+pub enum ArwahDns {
     Request(ArwahRequest),
     Response(ArwahResponse),
 }
@@ -89,8 +89,8 @@ impl ArwahRequest {
         ArwahRequest { questions }
     }
 
-    pub fn arwah_wrap(self) -> ARWAH_DNS {
-        ARWAH_DNS::Request(self)
+    pub fn arwah_wrap(self) -> ArwahDns {
+        ArwahDns::Request(self)
     }
 }
 
@@ -99,8 +99,8 @@ impl ArwahResponse {
         ArwahResponse { answers }
     }
 
-    pub fn arwah_wrap(self) -> ARWAH_DNS {
-        ARWAH_DNS::Response(self)
+    pub fn arwah_wrap(self) -> ArwahDns {
+        ArwahDns::Response(self)
     }
 }
 

@@ -2,18 +2,18 @@ use crate::network::{dhcp, dns, dropbox, service::ArwahNoiseLevel, ssdp};
 use serde::Serialize;
 
 #[derive(Debug, PartialEq, Serialize)]
-pub enum ARWAH_UDP {
-    DHCP(dhcp::ARWAH_DHCP),
-    DNS(dns::ARWAH_DNS),
-    SSDP(ssdp::ARWAH_SSDP),
+pub enum ArwahUdp {
+    DHCP(dhcp::ArwahDhcp),
+    DNS(dns::ArwahDns),
+    SSDP(ssdp::ArwahSsdp),
     Dropbox(dropbox::ArwahDropboxBeacon),
     Text(String),
     Binary(Vec<u8>),
 }
 
-impl ARWAH_UDP {
+impl ArwahUdp {
     pub fn arwah_noise_level(&self) -> ArwahNoiseLevel {
-        use self::ARWAH_UDP::*;
+        use self::ArwahUdp::*;
         match *self {
             DHCP(_) => ArwahNoiseLevel::Zero,
             DNS(_) => ArwahNoiseLevel::Zero,

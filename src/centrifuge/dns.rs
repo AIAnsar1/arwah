@@ -1,7 +1,7 @@
 use crate::network::dns::ArwahRecord;
 use crate::network::dns::*;
 use crate::network::service::ArwahCentrifugeError;
-pub fn arwah_extract(remaining: &[u8]) -> Result<ARWAH_DNS, ArwahCentrifugeError> {
+pub fn arwah_extract(remaining: &[u8]) -> Result<ArwahDns, ArwahCentrifugeError> {
     if let Ok(dns) = dns_parser::Packet::parse(remaining) {
         if dns.header.query {
             let questions = dns.questions.into_iter().map(|q| (q.qtype.into(), q.qname.to_string())).collect();

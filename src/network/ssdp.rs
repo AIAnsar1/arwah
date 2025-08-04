@@ -1,7 +1,7 @@
 use serde::Serialize;
 
 #[derive(Debug, PartialEq, Serialize)]
-pub enum ARWAH_SSDP {
+pub enum ArwahSsdp {
     Discover(Option<String>),
     Notify(String),
     BTSearch(String),

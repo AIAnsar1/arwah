@@ -2,15 +2,14 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::doc_markdown, clippy::if_not_else, clippy::non_ascii_literal)]
 
-use anyhow::{Context, Error, Result, anyhow, bail};
-use clap::{CommandFactory, Parser};
+use anyhow::{Context, Result};
+use clap::{CommandFactory, Parser, Subcommand};
 use colorful::{Color, Colorful};
 use env_logger::Env;
 use futures::executor::block_on;
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::fmt;
 use std::io::{self, IsTerminal, stdout};
 use std::net::IpAddr;
 use std::string::ToString;
@@ -21,12 +20,10 @@ use std::time::Duration;
 use arwah::address::arwah_parse_addresses;
 use arwah::benchmark::benchmark::{ArwahBenchmark, ArwahNamedTimer};
 use arwah::centrifuge;
-use arwah::cli;
 use arwah::cli::ArwahArgs;
 use arwah::fmt as ArwahFmt;
 use arwah::input::{self, ArwahConfig, ArwahOpts, ArwahScriptsRequired};
 use arwah::link::ArwahDataLink;
-use arwah::network;
 use arwah::sandbox;
 use arwah::scanner::service::ArwahScanner;
 use arwah::scripts::service::{ArwahScript, ArwahScriptFile, arwah_init_scripts};
@@ -102,11 +99,11 @@ fn arwah_opening(opts: &ArwahOpts) {
 "#;
     println!("{}", s.gradient(Color::Green).bold());
     let info = r#"________________________________________
-        :          Abu Ayyub Al Ansar          :
-        :           Abu Ali Al Ansar           :
-        :           Tawheed Network!           :
-        :            Free Palestine!           :
-        --------------------------------------"#;
+                        :          Abu Ayyub Al Ansar          :
+                        :           Abu Ali Al Ansar           :
+                        :           Tawheed Network!           :
+                        :            Free Palestine!           :
+                        --------------------------------------"#;
     println!("{}", info.gradient(Color::Yellow).bold());
     opening!();
     let config_path = opts.config_path.clone().unwrap_or_else(input::arwah_default_config_path);
@@ -179,22 +176,22 @@ fn arwah_sniffer() -> Result<()> {
 
     let cap = if args.read {
         if args.threads.is_none() {
-            debug!("Setting thread default to 1 due to -r");
+            debug!("[ ETA ]: Setting thread default to 1 due to -r");
             args.threads = Some(1);
         }
 
         let cap = sniff::arwah_open_file(&device)?;
-        eprintln!("Reading from file: {:?}", device);
+        eprintln!("[ ETA ]: Reading from file: {device:?}");
         cap
     } else {
         let cap = sniff::arwah_open(&device, &sniff::ArwahConfig { promisc: args.promisc, immediate_mode: true })?;
 
         let verbosity = config.arwah_filter().verbosity;
-        eprintln!("Listening on device: {:?}, verbosity {}/4", device, verbosity);
+        eprintln!("[ ETA ]: Listening on device: {device:?}, verbosity {verbosity}/4");
         cap
     };
     let threads = args.threads.unwrap_or_else(num_cpus::get);
-    debug!("[ ETA ]: Using {} threads", threads);
+    debug!("[ ETA ]: Using {threads} threads");
     let datalink = ArwahDataLink::arwah_from_linktype(cap.arwah_datalink())?;
     let filter = config.arwah_filter();
     let (tx, rx) = mpsc::sync_channel(256);
@@ -235,7 +232,7 @@ fn arwah_sniffer() -> Result<()> {
 
 #[cfg(not(tarpaulin_include))]
 #[allow(clippy::too_many_lines)]
-fn main() {
+fn main() -> Result<()> {
     #[cfg(not(unix))]
     let _ = ansi_term::enable_ansi_support();
 
@@ -349,7 +346,8 @@ fn main() {
     benchmarks.arwah_push(arwah_bench);
     debug!("[ ETA ]: Benchmarks raw {benchmarks:?}");
     info!("[ ETA ]: {}", benchmarks.arwah_summary());
-    arwah_sniffer();
+    arwah_sniffer()?;
+    Ok(())
 }
 
 #[cfg(test)]

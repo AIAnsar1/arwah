@@ -1,0 +1,58 @@
+# Arwah Configuration Example
+# Поместите этот файл как ~/.config/arwah/config.toml или используйте --config
+
+[scan]
+# Настройки сканирования портов
+batch_size = 3000
+timeout = 3000
+tries = 1
+greppable = false
+accessible = false
+
+# Порты по умолчанию для сканирования
+default_ports = [21, 22, 23, 25, 53, 80, 110, 111, 135, 139, 143, 443, 993, 995]
+
+# Исключенные порты
+exclude_ports = []
+
+# UDP сканирование
+udp = false
+
+[sniff]
+# Настройки сниффинга пакетов
+verbose = 2
+threads = 4
+promisc = false
+json = false
+debugging = false
+
+# Интерфейс по умолчанию (если не указан, будет выбран автоматически)
+# interface = "eth0"
+
+[scripts]
+# Настройки скриптов
+enabled = true
+default_scripts = ["default"]
+timeout = 30
+
+[security]
+# Настройки безопасности
+disable_seccomp = false
+sandbox = true
+
+[output]
+# Настройки вывода
+colors = true
+no_banner = false
+quiet = false
+
+[network]
+# Сетевые настройки
+ulimit = 8000
+resolve_hostnames = true
+ipv6 = true
+
+# Примеры использования:
+# arwah scan -a 192.168.1.1    # Использует настройки из [scan]
+# arwah sniff                   # Использует настройки из [sniff]
+# arwah --both                  # Использует обе секции настроек

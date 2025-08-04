@@ -1,11 +1,11 @@
 use crate::centrifuge::http;
 use crate::centrifuge::tls;
 use crate::network::service::ArwahCentrifugeError;
-use crate::network::tcp::ARWAH_TCP;
+use crate::network::tcp::ArwahTcp;
 use pktparse::tcp::{self, TcpHeader};
 use std::str::from_utf8;
 
-pub fn arwah_parse(remaining: &[u8]) -> Result<(TcpHeader, ARWAH_TCP), ArwahCentrifugeError> {
+pub fn arwah_parse(remaining: &[u8]) -> Result<(TcpHeader, ArwahTcp), ArwahCentrifugeError> {
     if let Ok((remaining, tcp_hdr)) = tcp::parse_tcp_header(remaining) {
         let inner = match arwah_extract(&tcp_hdr, remaining) {
             Ok(x) => x,
@@ -18,28 +18,28 @@ pub fn arwah_parse(remaining: &[u8]) -> Result<(TcpHeader, ARWAH_TCP), ArwahCent
 }
 
 #[inline]
-pub fn arwah_extract(_tcp_hdr: &TcpHeader, remaining: &[u8]) -> Result<ARWAH_TCP, ArwahCentrifugeError> {
+pub fn arwah_extract(_tcp_hdr: &TcpHeader, remaining: &[u8]) -> Result<ArwahTcp, ArwahCentrifugeError> {
     if remaining.is_empty() {
-        Ok(ARWAH_TCP::Empty)
+        Ok(ArwahTcp::Empty)
     } else if let Ok(client_hello) = tls::arwah_extract(remaining) {
-        Ok(ARWAH_TCP::TLS(client_hello))
+        Ok(ArwahTcp::TLS(client_hello))
     } else if let Ok(server_hello) = tls::arwah_extract(remaining) {
-        Ok(ARWAH_TCP::TLS(server_hello))
+        Ok(ArwahTcp::TLS(server_hello))
     } else if let Ok(http) = http::arwah_extract(remaining) {
-        Ok(ARWAH_TCP::HTTP(http))
+        Ok(ArwahTcp::HTTP(http))
     } else {
         Err(ArwahCentrifugeError::UnknownProtocol)
     }
 }
 
 #[inline]
-pub fn arwah_unknown(remaining: &[u8]) -> ARWAH_TCP {
+pub fn arwah_unknown(remaining: &[u8]) -> ArwahTcp {
     if remaining.contains(&0) {
-        ARWAH_TCP::Binary(remaining.to_vec())
+        ArwahTcp::Binary(remaining.to_vec())
     } else {
         match from_utf8(remaining) {
-            Ok(remaining) => ARWAH_TCP::Text(remaining.to_owned()),
-            Err(_) => ARWAH_TCP::Binary(remaining.to_vec()),
+            Ok(remaining) => ArwahTcp::Text(remaining.to_owned()),
+            Err(_) => ArwahTcp::Binary(remaining.to_vec()),
         }
     }
 }

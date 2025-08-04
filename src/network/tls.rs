@@ -17,7 +17,7 @@ pub struct ArwahServerHello {
 }
 
 #[derive(Debug, PartialEq, Serialize)]
-pub enum ARWAH_TLS {
+pub enum ArwahTls {
     ClientHello(ArwahClientHello),
     ServerHello(ArwahServerHello),
 }

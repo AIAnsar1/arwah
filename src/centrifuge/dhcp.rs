@@ -1,11 +1,11 @@
-use crate::network::dhcp::ARWAH_DHCP::*;
+use crate::network::dhcp::ArwahDhcp::*;
 use crate::network::dhcp::*;
 use crate::network::service::ArwahCentrifugeError;
 use dhcp4r::options::DhcpOption::DhcpMessageType;
 use dhcp4r::options::*;
 use dhcp4r::packet::Packet;
 
-fn arwah_wrap_packet(dhcp: &Packet, packet: ArwahPacket) -> ARWAH_DHCP {
+fn arwah_wrap_packet(dhcp: &Packet, packet: ArwahPacket) -> ArwahDhcp {
     match dhcp.option(dhcp4r::options::DHCP_MESSAGE_TYPE) {
         Some(DhcpMessageType(msg_type)) => match msg_type {
             dhcp4r::options::MessageType::Ack => ACK(packet),
@@ -21,7 +21,7 @@ fn arwah_wrap_packet(dhcp: &Packet, packet: ArwahPacket) -> ARWAH_DHCP {
     }
 }
 
-pub fn arwah_extract(remaining: &[u8]) -> Result<ARWAH_DHCP, ArwahCentrifugeError> {
+pub fn arwah_extract(remaining: &[u8]) -> Result<ArwahDhcp, ArwahCentrifugeError> {
     let dhcp = match dhcp4r::packet::Packet::from(remaining) {
         Ok(dhcp) => dhcp,
         Err(_err) => return Err(ArwahCentrifugeError::InvalidPacket),

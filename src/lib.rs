@@ -21,7 +21,7 @@ mod tests {
     use crate::network::ether::ArwahEther::IPv4;
     use crate::network::ipv4::ArwahIPv4::TCP;
     use crate::network::raw::ArwahRaw::Ether;
-    use crate::network::tcp::ARWAH_TCP::Text;
+    use crate::network::tcp::ArwahTcp::Text;
 
     use pktparse::ethernet::{EtherType, EthernetFrame, MacAddress};
     use pktparse::ip::IPProtocol;

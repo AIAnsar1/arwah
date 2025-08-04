@@ -6,8 +6,9 @@ use std::cmp;
 use std::fmt::Debug;
 use std::sync::Arc;
 
-use crate::network::arp::ARWAH_ARP;
-use crate::network::dhcp::ARWAH_DHCP;
+use crate::network::arp::ArwahARP;
+use crate::network::dhcp::ArwahDhcp;
+use crate::network::tcp::*;
 use crate::network::{arp, cjdns, http, icmp, ipv4, ipv6, tcp, tls, udp};
 use crate::network::{ether::ArwahEther, ip::ArwahIPHeader, raw::ArwahRaw, service::ArwahNoiseLevel};
 
@@ -112,12 +113,12 @@ impl ArwahFormat {
     }
 
     #[inline]
-    fn arwah_format_compact_arp(&self, out: &mut String, arp_pkt: &arp::ARWAH_ARP) -> Color {
+    fn arwah_format_compact_arp(&self, out: &mut String, arp_pkt: &arp::ArwahARP) -> Color {
         out.push_str(&match arp_pkt {
-            ARWAH_ARP::Request(arp_pkt) => {
+            ArwahARP::Request(arp_pkt) => {
                 format!("[ ETA ]: -> ARP/REQUEST {:15} ? (tell {}, {})", arp_pkt.dest_addr.to_string(), arp_pkt.src_addr, arwah_display_macaddr(arp_pkt.src_mac))
             }
-            ARWAH_ARP::Reply(arp_pkt) => {
+            ArwahARP::Reply(arp_pkt) => {
                 format!(
                     "[ ETA ]: -> ARP/REPLY {:15} ! => {} (fyi  {}, {})",
                     arp_pkt.src_addr.to_string(),
@@ -181,7 +182,7 @@ impl ArwahFormat {
     }
 
     #[inline]
-    fn arwah_format_compact_ip_tcp<IP: ArwahIPHeader>(&self, out: &mut String, ip_hdr: &IP, tcp_hdr: &pktparse::tcp::TcpHeader, tcp: tcp::ARWAH_TCP) -> Color {
+    fn arwah_format_compact_ip_tcp<IP: ArwahIPHeader>(&self, out: &mut String, ip_hdr: &IP, tcp_hdr: &pktparse::tcp::TcpHeader, tcp: tcp::ArwahTcp) -> Color {
         let mut flags = String::new();
         if tcp_hdr.flag_syn {
             flags.push('S')
@@ -198,7 +199,7 @@ impl ArwahFormat {
         out.push_str(&format!("[tcp/{:2}] {:22} -> {:22} ", flags, format!("{}:{}", ip_hdr.arwah_source_addr(), tcp_hdr.source_port), format!("{}:{}", ip_hdr.arwah_dest_addr(), tcp_hdr.dest_port)));
 
         match tcp {
-            tcp::ARWAH_TCP::HTTP(http::ArwahHttp::Request(http)) => {
+            tcp::ArwahTcp::HTTP(http::ArwahHttp::Request(http)) => {
                 out.push_str("[http] req, ");
 
                 let offset = out.len();
@@ -219,7 +220,7 @@ impl ArwahFormat {
 
                 Color::Red
             }
-            tcp::ARWAH_TCP::HTTP(http::ArwahHttp::Response(http)) => {
+            tcp::ArwahTcp::HTTP(http::ArwahHttp::Response(http)) => {
                 out.push_str("[http] resp, ");
                 let offset = out.len();
                 out.push_str(&format!("HTTP/1.{} {} {:?} ", http.version, http.code, http.reason));
@@ -235,45 +236,45 @@ impl ArwahFormat {
 
                 Color::Red
             }
-            tcp::ARWAH_TCP::TLS(tls::ARWAH_TLS::ClientHello(client_hello)) => {
+            tcp::ArwahTcp::TLS(tls::ArwahTls::ClientHello(client_hello)) => {
                 let extra = arwah_display_kv_list(&[("version", client_hello.version), ("session", client_hello.session_id.as_deref()), ("hostname", client_hello.hostname.as_deref())]);
                 out.push_str("TLS ClientHello");
                 out.push_str(&extra);
                 Color::Green
             }
-            tcp::ARWAH_TCP::TLS(tls::ARWAH_TLS::ServerHello(server_hello)) => {
+            tcp::ArwahTcp::TLS(tls::ArwahTls::ServerHello(server_hello)) => {
                 let extra = arwah_display_kv_list(&[("version", server_hello.version), ("session", server_hello.session_id.as_deref()), ("cipher", server_hello.cipher)]);
                 out.push_str("TLS ServerHello");
                 out.push_str(&extra);
                 Color::Green
             }
-            tcp::ARWAH_TCP::Text(text) => {
+            tcp::ArwahTcp::Text(text) => {
                 out.push_str(&format!("TEXT {:?}", text));
                 Color::Red
             }
-            tcp::ARWAH_TCP::Binary(x) => {
+            tcp::ArwahTcp::Binary(x) => {
                 out.push_str(&format!("BINARY {:?}", x.as_bstr()));
                 if tcp_hdr.flag_rst { GREY } else { Color::Red }
             }
-            tcp::ARWAH_TCP::Empty => GREY,
+            tcp::ArwahTcp::Empty => GREY,
         }
     }
 
     #[inline]
-    fn arwah_format_compact_ip_udp<IP: ArwahIPHeader>(&self, out: &mut String, ip_hdr: &IP, udp_hdr: pktparse::udp::UdpHeader, udp: udp::ARWAH_UDP) -> Color {
+    fn arwah_format_compact_ip_udp<IP: ArwahIPHeader>(&self, out: &mut String, ip_hdr: &IP, udp_hdr: pktparse::udp::UdpHeader, udp: udp::ArwahUdp) -> Color {
         out.push_str(&format!("UDP {:22} -> {:22} ", format!("{}:{}", ip_hdr.arwah_source_addr(), udp_hdr.source_port), format!("{}:{}", ip_hdr.arwah_dest_addr(), udp_hdr.dest_port)));
         match udp {
-            udp::ARWAH_UDP::DHCP(dhcp) => {
+            udp::ArwahUdp::DHCP(dhcp) => {
                 match dhcp {
-                    ARWAH_DHCP::DISCOVER(disc) => {
+                    ArwahDhcp::DISCOVER(disc) => {
                         out.push_str(&format!("DHCP DISCOVER: {}", arwah_display_macadr_buf(disc.chaddr)));
                         out.push_str(&ArwahDhcpKvListWriter::arwah_new().arwah_append("hostname", &disc.hostname).arwah_append("requested_ip_address", &disc.requested_ip_address).arwah_finalize());
                     }
-                    ARWAH_DHCP::REQUEST(req) => {
+                    ArwahDhcp::REQUEST(req) => {
                         out.push_str(&format!("DHCP REQ: {}", arwah_display_macadr_buf(req.chaddr)));
                         out.push_str(&ArwahDhcpKvListWriter::arwah_new().arwah_append("hostname", &req.hostname).arwah_append("requested_ip_address", &req.requested_ip_address).arwah_finalize());
                     }
-                    ARWAH_DHCP::ACK(ack) => {
+                    ArwahDhcp::ACK(ack) => {
                         out.push_str(&format!("DHCP ACK: {} => {}", arwah_display_macadr_buf(ack.chaddr), ack.yiaddr));
                         out.push_str(
                             &ArwahDhcpKvListWriter::arwah_new()
@@ -283,7 +284,7 @@ impl ArwahFormat {
                                 .arwah_finalize(),
                         );
                     }
-                    ARWAH_DHCP::OFFER(offer) => {
+                    ArwahDhcp::OFFER(offer) => {
                         out.push_str(&format!("DHCP OFFER: {} => {}", arwah_display_macadr_buf(offer.chaddr), offer.yiaddr));
                         out.push_str(
                             &ArwahDhcpKvListWriter::arwah_new()
@@ -299,9 +300,9 @@ impl ArwahFormat {
                 };
                 Color::Blue
             }
-            udp::ARWAH_UDP::DNS(dns) => {
+            udp::ArwahUdp::DNS(dns) => {
                 match dns {
-                    crate::network::dns::ARWAH_DNS::Request(req) => {
+                    crate::network::dns::ArwahDns::Request(req) => {
                         out.push_str("DNS req, ");
 
                         match req.questions.iter().map(|x| format!("{:?}", x)).reduce(|a, b| a + &arwah_align(out.len(), &b)) {
@@ -309,7 +310,7 @@ impl ArwahFormat {
                             None => out.push_str("[]"),
                         };
                     }
-                    crate::network::dns::ARWAH_DNS::Response(resp) => {
+                    crate::network::dns::ArwahDns::Response(resp) => {
                         out.push_str("DNS resp, ");
                         match resp.answers.iter().map(|x| format!("{:?}", x)).reduce(|a, b| a + &arwah_align(out.len(), &b)) {
                             Some(dns_str) => out.push_str(&dns_str),
@@ -320,27 +321,27 @@ impl ArwahFormat {
 
                 Color::Yellow
             }
-            udp::ARWAH_UDP::SSDP(ssdp) => {
+            udp::ArwahUdp::SSDP(ssdp) => {
                 out.push_str(&match ssdp {
-                    crate::network::ssdp::ARWAH_SSDP::Discover(None) => "[ssdp] searching...".to_string(),
-                    crate::network::ssdp::ARWAH_SSDP::Discover(Some(extra)) => format!("[ssdp] searching({:?})...", extra),
-                    crate::network::ssdp::ARWAH_SSDP::Notify(extra) => format!("[ssdp] notify: {:?}", extra),
-                    crate::network::ssdp::ARWAH_SSDP::BTSearch(extra) => format!("[ssdp] torrent search: {:?}", extra),
+                    crate::network::ssdp::ArwahSsdp::Discover(None) => "[ssdp] searching...".to_string(),
+                    crate::network::ssdp::ArwahSsdp::Discover(Some(extra)) => format!("[ssdp] searching({:?})...", extra),
+                    crate::network::ssdp::ArwahSsdp::Notify(extra) => format!("[ssdp] notify: {:?}", extra),
+                    crate::network::ssdp::ArwahSsdp::BTSearch(extra) => format!("[ssdp] torrent search: {:?}", extra),
                 });
                 Color::Purple
             }
-            udp::ARWAH_UDP::Dropbox(dropbox) => {
+            udp::ArwahUdp::Dropbox(dropbox) => {
                 out.push_str(&format!(
                     "[dropbox] beacon: version={:?}, host_int={:?}, namespaces={:?}, displayname={:?}, port={:?}",
                     dropbox.version, dropbox.host_int, dropbox.namespaces, dropbox.displayname, dropbox.port
                 ));
                 Color::Purple
             }
-            udp::ARWAH_UDP::Text(text) => {
+            udp::ArwahUdp::Text(text) => {
                 out.push_str(&format!("TEXT {:?}", text));
                 Color::Red
             }
-            udp::ARWAH_UDP::Binary(x) => {
+            udp::ArwahUdp::Binary(x) => {
                 out.push_str(&format!("BINARY {:?}", x.as_bstr()));
                 Color::Red
             }
@@ -446,26 +447,26 @@ impl ArwahFormat {
     }
 
     #[inline]
-    fn arwah_print_debugging_tcp(&self, tcp: tcp::ARWAH_TCP) -> String {
+    fn arwah_print_debugging_tcp(&self, tcp: tcp::ArwahTcp) -> String {
         match tcp {
-            tcp::ARWAH_TCP::HTTP(http::ArwahHttp::Request(http)) => self.arwah_colorify(Color::Red, format!("HTTP -> {http:?}")),
-            tcp::ARWAH_TCP::HTTP(http::ArwahHttp::Response(http)) => self.arwah_colorify(Color::Red, format!("HTTP -> {http:?}")),
-            tcp::ARWAH_TCP::TLS(client_hello) => self.arwah_colorify(Color::Green, format!("TLS -> {:?}", client_hello)),
-            tcp::ARWAH_TCP::Text(text) => self.arwah_colorify(Color::Blue, format!("TEXT -> {:?}", text)),
-            tcp::ARWAH_TCP::Binary(x) => self.arwah_colorify(Color::Yellow, format!("BINARY -> {:?}", x)),
-            tcp::ARWAH_TCP::Empty => self.arwah_colorify(GREY, String::new()),
+            tcp::ArwahTcp::HTTP(http::ArwahHttp::Request(http)) => self.arwah_colorify(Color::Red, format!("HTTP -> {http:?}")),
+            tcp::ArwahTcp::HTTP(http::ArwahHttp::Response(http)) => self.arwah_colorify(Color::Red, format!("HTTP -> {http:?}")),
+            tcp::ArwahTcp::TLS(client_hello) => self.arwah_colorify(Color::Green, format!("TLS -> {:?}", client_hello)),
+            tcp::ArwahTcp::Text(text) => self.arwah_colorify(Color::Blue, format!("TEXT -> {:?}", text)),
+            tcp::ArwahTcp::Binary(x) => self.arwah_colorify(Color::Yellow, format!("BINARY -> {:?}", x)),
+            tcp::ArwahTcp::Empty => self.arwah_colorify(GREY, String::new()),
         }
     }
 
     #[inline]
-    fn arwah_print_debugging_udp(&self, udp: udp::ARWAH_UDP) -> String {
+    fn arwah_print_debugging_udp(&self, udp: udp::ArwahUdp) -> String {
         match udp {
-            udp::ARWAH_UDP::DHCP(dhcp) => self.arwah_colorify(Color::Green, format!("DHCP -> {:?}", dhcp)),
-            udp::ARWAH_UDP::DNS(dns) => self.arwah_colorify(Color::Green, format!("DNS -> {:?}", dns)),
-            udp::ARWAH_UDP::SSDP(ssdp) => self.arwah_colorify(Color::Purple, format!("SSDP -> {:?}", ssdp)),
-            udp::ARWAH_UDP::Dropbox(dropbox) => self.arwah_colorify(Color::Purple, format!("DROPBOX -> {:?}", dropbox)),
-            udp::ARWAH_UDP::Text(text) => self.arwah_colorify(Color::Blue, format!("TEXT -> {:?}", text)),
-            udp::ARWAH_UDP::Binary(x) => self.arwah_colorify(Color::Yellow, format!("BINARY -> {:?}", x)),
+            udp::ArwahUdp::DHCP(dhcp) => self.arwah_colorify(Color::Green, format!("DHCP -> {:?}", dhcp)),
+            udp::ArwahUdp::DNS(dns) => self.arwah_colorify(Color::Green, format!("DNS -> {:?}", dns)),
+            udp::ArwahUdp::SSDP(ssdp) => self.arwah_colorify(Color::Purple, format!("SSDP -> {:?}", ssdp)),
+            udp::ArwahUdp::Dropbox(dropbox) => self.arwah_colorify(Color::Purple, format!("DROPBOX -> {:?}", dropbox)),
+            udp::ArwahUdp::Text(text) => self.arwah_colorify(Color::Blue, format!("TEXT -> {:?}", text)),
+            udp::ArwahUdp::Binary(x) => self.arwah_colorify(Color::Yellow, format!("BINARY -> {:?}", x)),
         }
     }
 

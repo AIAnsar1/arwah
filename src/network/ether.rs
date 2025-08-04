@@ -5,7 +5,7 @@ use serde::Serialize;
 
 #[derive(Debug, PartialEq, Serialize)]
 pub enum ArwahEther {
-    Arp(arp::ARWAH_ARP),
+    Arp(arp::ArwahARP),
     IPv4(pktparse::ipv4::IPv4Header, ipv4::ArwahIPv4),
     IPv6(pktparse::ipv6::IPv6Header, ipv6::ArwahIPv6),
     Cjdns(cjdns::ArwahCjdnsEthPkt),
