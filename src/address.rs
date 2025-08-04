@@ -32,22 +32,14 @@ pub fn arwah_parse_addresses(input: &ArwahOpts) -> Vec<IpAddr> {
         let file_path = Path::new(file_path);
 
         if !file_path.is_file() {
-            warning!(
-                format!("[ ETA ]: Host {file_path:?} could not be resolved."),
-                input.greppable,
-                input.accessible
-            );
+            warning!(format!("[ ETA ]: Host {file_path:?} could not be resolved."), input.greppable, input.accessible);
             continue;
         }
 
         if let Ok(x) = arwah_read_ips_from_file(file_path, &backup_resolver) {
             ips.extend(x);
         } else {
-            warning!(
-                format!("[ ETA ]: Host {file_path:?} could not be resolved."),
-                input.greppable,
-                input.accessible
-            );
+            warning!(format!("[ ETA ]: Host {file_path:?} could not be resolved."), input.greppable, input.accessible);
         }
     }
     let excluded_cidrs = arwah_parse_excluded_networks(&input.exclude_addresses, &backup_resolver);
@@ -82,15 +74,8 @@ fn arwah_resolve_ips_from_host(source: &str, backup_resolver: &Resolver) -> Vec<
     ips
 }
 
-fn arwah_parse_excluded_networks(
-    exclude_addresses: &Option<Vec<String>>,
-    resolver: &Resolver,
-) -> Vec<IpCidr> {
-    exclude_addresses
-        .iter()
-        .flatten()
-        .flat_map(|addr| arwah_parse_single_excluded_address(addr, resolver))
-        .collect()
+fn arwah_parse_excluded_networks(exclude_addresses: &Option<Vec<String>>, resolver: &Resolver) -> Vec<IpCidr> {
+    exclude_addresses.iter().flatten().flat_map(|addr| arwah_parse_single_excluded_address(addr, resolver)).collect()
 }
 
 fn arwah_parse_single_excluded_address(addr: &str, resolver: &Resolver) -> Vec<IpCidr> {
@@ -101,10 +86,7 @@ fn arwah_parse_single_excluded_address(addr: &str, resolver: &Resolver) -> Vec<I
     if let Ok(ip) = IpAddr::from_str(addr) {
         return vec![IpCidr::new_host(ip)];
     }
-    arwah_resolve_ips_from_host(addr, resolver)
-        .into_iter()
-        .map(IpCidr::new_host)
-        .collect()
+    arwah_resolve_ips_from_host(addr, resolver).into_iter().map(IpCidr::new_host).collect()
 }
 
 fn arwah_get_resolver(resolver: &Option<String>) -> Resolver {
@@ -113,42 +95,28 @@ fn arwah_get_resolver(resolver: &Option<String>) -> Resolver {
             let mut config = ResolverConfig::new();
             let resolver_ips = match arwah_read_resolver_from_file(r) {
                 Ok(ips) => ips,
-                Err(_) => r
-                    .split(',')
-                    .filter_map(|r| IpAddr::from_str(r).ok())
-                    .collect::<Vec<_>>(),
+                Err(_) => r.split(',').filter_map(|r| IpAddr::from_str(r).ok()).collect::<Vec<_>>(),
             };
 
             for ip in resolver_ips {
-                config.add_name_server(NameServerConfig::new(
-                    SocketAddr::new(ip, 53),
-                    Protocol::Udp,
-                ));
+                config.add_name_server(NameServerConfig::new(SocketAddr::new(ip, 53), Protocol::Udp));
             }
             Resolver::new(config, ResolverOpts::default()).unwrap()
         }
         None => match Resolver::from_system_conf() {
             Ok(resolver) => resolver,
-            Err(_) => {
-                Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap()
-            }
+            Err(_) => Resolver::new(ResolverConfig::cloudflare_tls(), ResolverOpts::default()).unwrap(),
         },
     }
 }
 
 fn arwah_read_resolver_from_file(path: &str) -> Result<Vec<IpAddr>, std::io::Error> {
-    let ips = fs::read_to_string(path)?
-        .lines()
-        .filter_map(|line| IpAddr::from_str(line.trim()).ok())
-        .collect();
+    let ips = fs::read_to_string(path)?.lines().filter_map(|line| IpAddr::from_str(line.trim()).ok()).collect();
     Ok(ips)
 }
 
 #[cfg(not(tarpaulin_include))]
-fn arwah_read_ips_from_file(
-    ips: &std::path::Path,
-    backup_resolver: &Resolver,
-) -> Result<Vec<IpAddr>, std::io::Error> {
+fn arwah_read_ips_from_file(ips: &std::path::Path, backup_resolver: &Resolver) -> Result<Vec<IpAddr>, std::io::Error> {
     let file = File::open(ips)?;
     let reader = BufReader::new(file);
     let mut ips: Vec<IpAddr> = Vec::new();
@@ -170,155 +138,85 @@ mod tests {
 
     #[test]
     fn test_parse_correct_addresses() {
-        let opts = ArwahOpts {
-            addresses: vec!["127.0.0.1".to_owned(), "192.168.0.0/30".to_owned()],
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["127.0.0.1".to_owned(), "192.168.0.0/30".to_owned()], ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
-        assert_eq!(
-            ips,
-            [
-                Ipv4Addr::new(127, 0, 0, 1),
-                Ipv4Addr::new(192, 168, 0, 0),
-                Ipv4Addr::new(192, 168, 0, 1),
-                Ipv4Addr::new(192, 168, 0, 2),
-                Ipv4Addr::new(192, 168, 0, 3)
-            ]
-        );
+        assert_eq!(ips, [Ipv4Addr::new(127, 0, 0, 1), Ipv4Addr::new(192, 168, 0, 0), Ipv4Addr::new(192, 168, 0, 1), Ipv4Addr::new(192, 168, 0, 2), Ipv4Addr::new(192, 168, 0, 3)]);
     }
 
     #[test]
     fn test_parse_addresses_with_address_exclusions() {
-        let opts = ArwahOpts {
-            addresses: vec!["192.168.0.0/30".to_owned()],
-            exclude_addresses: Some(vec!["192.168.0.1".to_owned()]),
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["192.168.0.0/30".to_owned()], exclude_addresses: Some(vec!["192.168.0.1".to_owned()]), ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
-        assert_eq!(
-            ips,
-            [
-                Ipv4Addr::new(192, 168, 0, 0),
-                Ipv4Addr::new(192, 168, 0, 2),
-                Ipv4Addr::new(192, 168, 0, 3)
-            ]
-        );
+        assert_eq!(ips, [Ipv4Addr::new(192, 168, 0, 0), Ipv4Addr::new(192, 168, 0, 2), Ipv4Addr::new(192, 168, 0, 3)]);
     }
 
     #[test]
     fn test_parse_addresses_with_cidr_exclusions() {
-        let opts = ArwahOpts {
-            addresses: vec!["192.168.0.0/29".to_owned()],
-            exclude_addresses: Some(vec!["192.168.0.0/30".to_owned()]),
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["192.168.0.0/29".to_owned()], exclude_addresses: Some(vec!["192.168.0.0/30".to_owned()]), ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
 
-        assert_eq!(
-            ips,
-            [
-                Ipv4Addr::new(192, 168, 0, 4),
-                Ipv4Addr::new(192, 168, 0, 5),
-                Ipv4Addr::new(192, 168, 0, 6),
-                Ipv4Addr::new(192, 168, 0, 7),
-            ]
-        );
+        assert_eq!(ips, [Ipv4Addr::new(192, 168, 0, 4), Ipv4Addr::new(192, 168, 0, 5), Ipv4Addr::new(192, 168, 0, 6), Ipv4Addr::new(192, 168, 0, 7),]);
     }
 
     #[test]
     fn test_parse_addresses_with_incorrect_address_exclusions() {
-        let opts = ArwahOpts {
-            addresses: vec!["192.168.0.0/30".to_owned()],
-            exclude_addresses: Some(vec!["192.168.0.1".to_owned()]),
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["192.168.0.0/30".to_owned()], exclude_addresses: Some(vec!["192.168.0.1".to_owned()]), ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
-        assert_eq!(
-            ips,
-            [
-                Ipv4Addr::new(192, 168, 0, 0),
-                Ipv4Addr::new(192, 168, 0, 2),
-                Ipv4Addr::new(192, 168, 0, 3)
-            ]
-        );
+        assert_eq!(ips, [Ipv4Addr::new(192, 168, 0, 0), Ipv4Addr::new(192, 168, 0, 2), Ipv4Addr::new(192, 168, 0, 3)]);
     }
 
     #[test]
     fn test_parse_correct_host_addresses() {
-        let opts = ArwahOpts {
-            addresses: vec!["google.com".to_owned()],
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["google.com".to_owned()], ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
         assert_eq!(ips.len(), 1);
     }
 
     #[test]
     fn test_parse_correct_and_incorrect_addresses() {
-        let opts = ArwahOpts {
-            addresses: vec!["127.0.0.1".to_owned(), "im_wrong".to_owned()],
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["127.0.0.1".to_owned(), "im_wrong".to_owned()], ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
         assert_eq!(ips, [Ipv4Addr::new(127, 0, 0, 1),]);
     }
 
     #[test]
     fn test_parse_incorrect_addresses() {
-        let opts = ArwahOpts {
-            addresses: vec!["im_wrong".to_owned(), "300.10.1.1".to_owned()],
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["im_wrong".to_owned(), "300.10.1.1".to_owned()], ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
         assert!(ips.is_empty());
     }
 
     #[test]
     fn test_parse_hosts_file_and_incorrect_hosts() {
-        let opts = ArwahOpts {
-            addresses: vec!["examples/hosts.txt".to_owned()],
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["examples/hosts.txt".to_owned()], ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
         assert_eq!(ips.len(), 3);
     }
 
     #[test]
     fn test_parse_empty_hosts_file() {
-        let opts = ArwahOpts {
-            addresses: vec!["examples/empty.txt".to_owned()],
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["examples/empty.txt".to_owned()], ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
         assert_eq!(ips.len(), 0);
     }
 
     #[test]
     fn test_parse_naughty_host_file() {
-        let opts = ArwahOpts {
-            addresses: vec!["examples/naughty.txt".to_owned()],
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["examples/naughty.txt".to_owned()], ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
         assert_eq!(ips.len(), 0);
     }
 
     #[test]
     fn test_parse_duplicate_cidrs() {
-        let opts = ArwahOpts {
-            addresses: vec!["79.98.104.0/21".to_owned(), "79.98.104.0/24".to_owned()],
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["79.98.104.0/21".to_owned(), "79.98.104.0/24".to_owned()], ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
         assert_eq!(ips.len(), 2_048);
     }
 
     #[test]
     fn parse_overspecific_cidr() {
-        let opts = ArwahOpts {
-            addresses: vec!["192.128.1.1/24".to_owned()],
-            ..Default::default()
-        };
+        let opts = ArwahOpts { addresses: vec!["192.128.1.1/24".to_owned()], ..Default::default() };
         let ips = arwah_parse_addresses(&opts);
         assert_eq!(ips.len(), 256);
     }
@@ -334,10 +232,7 @@ mod tests {
 
     #[test]
     fn test_resolver_args_google_dns() {
-        let opts = ArwahOpts {
-            resolver: Some("8.8.8.8,8.8.4.4".to_owned()),
-            ..Default::default()
-        };
+        let opts = ArwahOpts { resolver: Some("8.8.8.8,8.8.4.4".to_owned()), ..Default::default() };
         let resolver = arwah_get_resolver(&opts.resolver);
         let lookup = resolver.lookup_ip("www.example.com.").unwrap();
         assert!(lookup.iter().next().is_some());

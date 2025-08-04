@@ -11,10 +11,7 @@ fn run_arwah_with_timeout(args: &[&str], timeout: Duration) {
     use std::time::Instant;
 
     let start = Instant::now();
-    let mut child = Command::new("target/debug/rustscan")
-        .args(args)
-        .spawn()
-        .unwrap();
+    let mut child = Command::new("target/debug/rustscan").args(args).spawn().unwrap();
     let mut tries = TIMEOUT_MARGIN;
     loop {
         match child.wait_timeout(timeout).unwrap() {
@@ -48,52 +45,19 @@ mod timelimits {
     #[test]
     #[ignore]
     fn scan_google_com() {
-        super::run_arwah_with_timeout(
-            &[
-                "--greppable",
-                "--no-nmap",
-                "-u",
-                "5000",
-                "-b",
-                "2500",
-                "google.com",
-            ],
-            super::Duration::from_secs(28),
-        );
+        super::run_arwah_with_timeout(&["--greppable", "--no-nmap", "-u", "5000", "-b", "2500", "google.com"], super::Duration::from_secs(28));
     }
 
     #[test]
     #[ignore]
     fn scan_example_com() {
-        super::run_arwah_with_timeout(
-            &[
-                "--greppable",
-                "--no-nmap",
-                "-u",
-                "5000",
-                "-b",
-                "2500",
-                "example.com",
-            ],
-            super::Duration::from_secs(28),
-        );
+        super::run_arwah_with_timeout(&["--greppable", "--no-nmap", "-u", "5000", "-b", "2500", "example.com"], super::Duration::from_secs(28));
     }
 
     #[test]
     #[ignore]
     fn scan_rustscan_cmnatic_co_uk() {
-        super::run_arwah_with_timeout(
-            &[
-                "--greppable",
-                "--no-nmap",
-                "-u",
-                "5000",
-                "-b",
-                "2500",
-                "arwah.cmnatic.co.uk",
-            ],
-            super::Duration::from_secs(26),
-        );
+        super::run_arwah_with_timeout(&["--greppable", "--no-nmap", "-u", "5000", "-b", "2500", "arwah.cmnatic.co.uk"], super::Duration::from_secs(26));
     }
     #[test]
     #[ignore]
@@ -104,49 +68,16 @@ mod timelimits {
     #[test]
     #[ignore]
     fn udp_scan_google_com() {
-        super::run_arwah_with_timeout(
-            &[
-                "--udp",
-                "--greppable",
-                "-u",
-                "5000",
-                "-b",
-                "2500",
-                "google.com",
-            ],
-            super::Duration::from_secs(28),
-        );
+        super::run_arwah_with_timeout(&["--udp", "--greppable", "-u", "5000", "-b", "2500", "google.com"], super::Duration::from_secs(28));
     }
     #[test]
     #[ignore]
     fn udp_scan_example_com() {
-        super::run_arwah_with_timeout(
-            &[
-                "--udp",
-                "--greppable",
-                "-u",
-                "5000",
-                "-b",
-                "2500",
-                "example.com",
-            ],
-            super::Duration::from_secs(28),
-        );
+        super::run_arwah_with_timeout(&["--udp", "--greppable", "-u", "5000", "-b", "2500", "example.com"], super::Duration::from_secs(28));
     }
     #[test]
     #[ignore]
     fn udp_scan_rustscan_cmnatic_co_uk() {
-        super::run_arwah_with_timeout(
-            &[
-                "--udp",
-                "--greppable",
-                "-u",
-                "5000",
-                "-b",
-                "2500",
-                "arwah.cmnatic.co.uk",
-            ],
-            super::Duration::from_secs(26),
-        );
+        super::run_arwah_with_timeout(&["--udp", "--greppable", "-u", "5000", "-b", "2500", "arwah.cmnatic.co.uk"], super::Duration::from_secs(26));
     }
 }

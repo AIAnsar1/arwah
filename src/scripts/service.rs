@@ -79,8 +79,7 @@ pub fn arwah_init_scripts(scripts: &ArwahScriptsRequired) -> Result<Vec<ArwahScr
     match scripts {
         ArwahScriptsRequired::None => {}
         ArwahScriptsRequired::Default => {
-            let default_script = toml::from_str::<ArwahScriptFile>(DEFAULT)
-                .expect("[ ETA ]: Failed to parse Script file.");
+            let default_script = toml::from_str::<ArwahScriptFile>(DEFAULT).expect("[ ETA ]: Failed to parse Script file.");
             scripts_to_run.push(default_script);
         }
         ArwahScriptsRequired::Custom => {
@@ -99,17 +98,10 @@ pub fn arwah_init_scripts(scripts: &ArwahScriptsRequired) -> Result<Vec<ArwahScr
             if let Some(config_hashset) = script_config.tags {
                 for script in parsed_scripts {
                     if let Some(script_hashset) = &script.tags {
-                        if script_hashset
-                            .iter()
-                            .all(|tag| config_hashset.contains(tag))
-                        {
+                        if script_hashset.iter().all(|tag| config_hashset.contains(tag)) {
                             scripts_to_run.push(script);
                         } else {
-                            debug!(
-                                "\n [ ETA ]: Script tags does not match config tags {:?} {}",
-                                &script_hashset,
-                                script.path.unwrap().display()
-                            );
+                            debug!("\n [ ETA ]: Script tags does not match config tags {:?} {}", &script_hashset, script.path.unwrap().display());
                         }
                     }
                 }
@@ -135,35 +127,16 @@ pub fn arwah_parse_scripts(scripts: Vec<PathBuf>) -> Vec<ArwahScriptFile> {
 
 impl ArwahScript {
     pub fn arwah_build(
-        path: Option<PathBuf>,
-        ip: IpAddr,
-        open_ports: Vec<u16>,
-        trigger_port: Option<String>,
-        ports_separator: Option<String>,
-        tags: Option<Vec<String>>,
-        call_format: Option<String>,
+        path: Option<PathBuf>, ip: IpAddr, open_ports: Vec<u16>, trigger_port: Option<String>, ports_separator: Option<String>, tags: Option<Vec<String>>, call_format: Option<String>,
     ) -> Self {
-        Self {
-            path,
-            ip,
-            open_ports,
-            trigger_port,
-            ports_separator,
-            tags,
-            call_format,
-        }
+        Self { path, ip, open_ports, trigger_port, ports_separator, tags, call_format }
     }
 
     #[allow(unused_assignments)]
     pub fn arwah_run(self) -> Result<String> {
         debug!("[ ETA ]: un self {:?}", &self);
         let separator = self.ports_separator.unwrap_or_else(|| ",".into());
-        let mut ports_str = self
-            .open_ports
-            .iter()
-            .map(ToString::to_string)
-            .collect::<Vec<String>>()
-            .join(&separator);
+        let mut ports_str = self.open_ports.iter().map(ToString::to_string).collect::<Vec<String>>().join(&separator);
 
         if let Some(port) = self.trigger_port {
             ports_str = port;
@@ -209,18 +182,9 @@ impl ArwahScript {
 fn arwah_execute_script(script: &str) -> Result<String> {
     debug!("\n[ ETA ]: Script arguments {script}");
 
-    let (cmd, arg) = if cfg!(unix) {
-        ("sh", "-c")
-    } else {
-        ("cmd.exe", "/c")
-    };
+    let (cmd, arg) = if cfg!(unix) { ("sh", "-c") } else { ("cmd.exe", "/c") };
 
-    match Command::new(cmd)
-        .args([arg, script])
-        .stdin(Stdio::piped())
-        .stderr(Stdio::piped())
-        .output()
-    {
+    match Command::new(cmd).args([arg, script]).stdin(Stdio::piped()).stderr(Stdio::piped()).output() {
         Ok(output) => {
             let status = output.status;
 
@@ -262,10 +226,7 @@ pub fn arwah_find_scripts(path: PathBuf) -> Result<Vec<PathBuf>> {
         }
         Ok(files_vec)
     } else {
-        Err(anyhow!(
-            "[ ETA ]: Can't find scripts folder {}",
-            path.display()
-        ))
+        Err(anyhow!("[ ETA ]: Can't find scripts folder {}", path.display()))
     }
 }
 
@@ -288,19 +249,11 @@ impl ArwahScriptFile {
             debug!("[ ETA ]: Failed to read file: {}", &real_path.display());
             return None;
         }
-        debug!(
-            "[ ETA ]: ScriptFile {} lines\n{}",
-            &real_path.display(),
-            &lines_buf
-        );
+        debug!("[ ETA ]: ScriptFile {} lines\n{}", &real_path.display(), &lines_buf);
 
         match toml::from_str::<ArwahScriptFile>(&lines_buf) {
             Ok(mut parsed) => {
-                debug!(
-                    "[ ETA ]: Parsed ScriptFile{} \n{:?}",
-                    &real_path.display(),
-                    &parsed
-                );
+                debug!("[ ETA ]: Parsed ScriptFile{} \n{:?}", &real_path.display(), &parsed);
                 parsed.path = Some(real_path);
                 // parsed_scripts.push(parsed);
                 Some(parsed)
@@ -331,15 +284,7 @@ mod tests {
     use super::*;
 
     fn arwah_into_script(script_f: ArwahScriptFile) -> ArwahScript {
-        ArwahScript::arwah_build(
-            script_f.path,
-            "127.0.0.1".parse().unwrap(),
-            vec![80, 8080],
-            script_f.port,
-            script_f.ports_separator,
-            script_f.tags,
-            script_f.call_format,
-        )
+        ArwahScript::arwah_build(script_f.path, "127.0.0.1".parse().unwrap(), vec![80, 8080], script_f.port, script_f.ports_separator, script_f.tags, script_f.call_format)
     }
 
     #[test]
@@ -358,15 +303,13 @@ mod tests {
     #[test]
     #[should_panic]
     fn open_script_file_invalid_headers() {
-        ArwahScriptFile::new("examples/.arwah_scripts/test_script_invalid_headers.txt".into())
-            .unwrap();
+        ArwahScriptFile::new("examples/.arwah_scripts/test_script_invalid_headers.txt".into()).unwrap();
     }
 
     #[test]
     #[should_panic]
     fn open_script_file_invalid_call_format() {
-        let mut script_f =
-            ArwahScriptFile::new("examples/.arwah_scripts/test_script.txt".into()).unwrap();
+        let mut script_f = ArwahScriptFile::new("examples/.arwah_scripts/test_script.txt".into()).unwrap();
         script_f.call_format = Some("qwertyuiop".to_string());
         let script: ArwahScript = arwah_into_script(script_f);
         let _output = script.arwah_run().unwrap();
@@ -375,8 +318,7 @@ mod tests {
     #[test]
     #[should_panic]
     fn open_script_file_missing_call_format() {
-        let mut script_f =
-            ArwahScriptFile::new("examples/.arwah_scripts/test_script.txt".into()).unwrap();
+        let mut script_f = ArwahScriptFile::new("examples/.arwah_scripts/test_script.txt".into()).unwrap();
         script_f.call_format = None;
         let script: ArwahScript = arwah_into_script(script_f);
         let _output = script.arwah_run().unwrap();
@@ -390,31 +332,17 @@ mod tests {
 
     #[test]
     fn parse_txt_script() {
-        let script_f =
-            ArwahScriptFile::new("examples/.arwah_scripts/test_script.txt".into()).unwrap();
-        assert_eq!(
-            script_f.tags,
-            Some(vec!["core_approved".to_string(), "example".to_string()])
-        );
-        assert_eq!(
-            script_f.developer,
-            Some(vec![
-                "example".to_string(),
-                "https://example.org".to_string()
-            ])
-        );
+        let script_f = ArwahScriptFile::new("examples/.arwah_scripts/test_script.txt".into()).unwrap();
+        assert_eq!(script_f.tags, Some(vec!["core_approved".to_string(), "example".to_string()]));
+        assert_eq!(script_f.developer, Some(vec!["example".to_string(), "https://example.org".to_string()]));
         assert_eq!(script_f.ports_separator, Some(",".to_string()));
-        assert_eq!(
-            script_f.call_format,
-            Some("nmap -vvv -p {{port}} {{ip}}".to_string())
-        );
+        assert_eq!(script_f.call_format, Some("nmap -vvv -p {{port}} {{ip}}".to_string()));
     }
 
     #[test]
     #[cfg(unix)]
     fn run_bash_script() {
-        let script_f =
-            ArwahScriptFile::new("examples/.arwah_scripts/test_script.sh".into()).unwrap();
+        let script_f = ArwahScriptFile::new("examples/.arwah_scripts/test_script.sh".into()).unwrap();
         let script: ArwahScript = arwah_into_script(script_f);
         let output = script.arwah_run().unwrap();
         // output has a newline at the end by default, .trim() trims it
@@ -423,29 +351,21 @@ mod tests {
 
     #[test]
     fn run_python_script() {
-        let script_f =
-            ArwahScriptFile::new("examples/.arwah_scripts/test_script.py".into()).unwrap();
+        let script_f = ArwahScriptFile::new("examples/.arwah_scripts/test_script.py".into()).unwrap();
         let script: ArwahScript = arwah_into_script(script_f);
         let output = script.arwah_run().unwrap();
         // output has a newline at the end by default, .trim() trims it
-        assert_eq!(
-            output.trim(),
-            "Python script ran with arguments ['examples/.arwah_scripts/test_script.py', '127.0.0.1', '80,8080']"
-        );
+        assert_eq!(output.trim(), "Python script ran with arguments ['examples/.arwah_scripts/test_script.py', '127.0.0.1', '80,8080']");
     }
 
     #[test]
     #[cfg(unix)]
     fn run_perl_script() {
-        let script_f =
-            ArwahScriptFile::new("examples/.arwah_scripts/test_script.pl".into()).unwrap();
+        let script_f = ArwahScriptFile::new("examples/.arwah_scripts/test_script.pl".into()).unwrap();
         let script: ArwahScript = arwah_into_script(script_f);
         let output = script.arwah_run().unwrap();
         // output has a newline at the end by default, .trim() trims it
-        assert_eq!(
-            output.trim(),
-            "Total args passed to examples/.arwah_scripts/test_script.pl : 2\nArg # 1 : 127.0.0.1\nArg # 2 : 80,8080"
-        );
+        assert_eq!(output.trim(), "Total args passed to examples/.arwah_scripts/test_script.pl : 2\nArg # 1 : 127.0.0.1\nArg # 2 : 80,8080");
     }
 
     #[test]
@@ -457,18 +377,10 @@ mod tests {
         "#;
 
         let config: ArwahScriptConfig = toml::from_str(config_str).unwrap();
-        assert_eq!(
-            config.directory,
-            Some("examples/.arwah_scripts".to_string())
-        );
+        assert_eq!(config.directory, Some("examples/.arwah_scripts".to_string()));
         let script_dir_base = PathBuf::from(config.directory.unwrap());
         let scripts = arwah_find_scripts(script_dir_base).unwrap();
-        assert!(scripts.iter().any(|p| {
-            p.file_name()
-                .and_then(|f| f.to_str())
-                .map(|s| s == "test_script.txt")
-                .unwrap_or(false)
-        }));
+        assert!(scripts.iter().any(|p| { p.file_name().and_then(|f| f.to_str()).map(|s| s == "test_script.txt").unwrap_or(false) }));
     }
 
     #[test]
@@ -478,11 +390,7 @@ mod tests {
         "#;
         let config: ArwahScriptConfig = toml::from_str(config_str).unwrap();
         assert_eq!(config.directory, None);
-        let script_dir_base = if let Some(config_directory) = &config.directory {
-            PathBuf::from(config_directory)
-        } else {
-            dirs::home_dir().unwrap()
-        };
+        let script_dir_base = if let Some(config_directory) = &config.directory { PathBuf::from(config_directory) } else { dirs::home_dir().unwrap() };
         assert_eq!(script_dir_base, dirs::home_dir().unwrap());
     }
 }

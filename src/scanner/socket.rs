@@ -2,8 +2,7 @@ use itertools::{Product, iproduct};
 use std::net::{IpAddr, SocketAddr};
 
 pub struct ArwahSocket<'s> {
-    product_it:
-        Product<Box<std::slice::Iter<'s, u16>>, Box<std::slice::Iter<'s, std::net::IpAddr>>>,
+    product_it: Product<Box<std::slice::Iter<'s, u16>>, Box<std::slice::Iter<'s, std::net::IpAddr>>>,
 }
 
 impl<'s> ArwahSocket<'s> {
@@ -11,9 +10,7 @@ impl<'s> ArwahSocket<'s> {
         let ports_it = Box::new(ports.iter());
         let ips_it = Box::new(ips.iter());
 
-        Self {
-            product_it: iproduct!(ports_it, ips_it),
-        }
+        Self { product_it: iproduct!(ports_it, ips_it) }
     }
 }
 
@@ -22,9 +19,7 @@ impl Iterator for ArwahSocket<'_> {
     type Item = SocketAddr;
 
     fn next(&mut self) -> Option<Self::Item> {
-        self.product_it
-            .next()
-            .map(|(port, ip)| SocketAddr::new(*ip, *port))
+        self.product_it.next().map(|(port, ip)| SocketAddr::new(*ip, *port))
     }
 }
 
@@ -35,10 +30,7 @@ mod tests {
 
     #[test]
     fn test_goes_through_every_ip_port_combination() {
-        let addrs = vec![
-            "127.0.0.1".parse::<IpAddr>().unwrap(),
-            "192.168.0.1".parse::<IpAddr>().unwrap(),
-        ];
+        let addrs = vec!["127.0.0.1".parse::<IpAddr>().unwrap(), "192.168.0.1".parse::<IpAddr>().unwrap()];
         let ports: Vec<u16> = vec![22, 80, 443];
         let mut it = ArwahSocket::arwah_new(&addrs, &ports);
 

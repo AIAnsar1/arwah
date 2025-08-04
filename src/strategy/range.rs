@@ -18,14 +18,7 @@ impl ArwahRange {
         let mut rng = rand::rng();
         let normalized_first_pick = rng.random_range(0..normalized_end);
 
-        Self {
-            active: true,
-            normalized_end,
-            step,
-            normalized_first_pick,
-            normalized_pick: normalized_first_pick,
-            actual_start: start,
-        }
+        Self { active: true, normalized_end, step, normalized_first_pick, normalized_pick: normalized_first_pick, actual_start: start }
     }
 }
 
@@ -44,11 +37,7 @@ impl Iterator for ArwahRange {
         }
         self.normalized_pick = next_pick;
 
-        Some(
-            (self.actual_start + current_pick)
-                .try_into()
-                .expect("[ ETA ]: Could not convert u32 to u16"),
-        )
+        Some((self.actual_start + current_pick).try_into().expect("[ ETA ]: Could not convert u32 to u16"))
     }
 }
 

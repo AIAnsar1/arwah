@@ -27,25 +27,15 @@ trait ArwahRangeOrder {
 }
 
 impl ArwahStrategy {
-    pub fn arwah_pick(
-        range: &Option<ArwahPortRange>,
-        ports: Option<Vec<u16>>,
-        order: ArwahScanOrder,
-    ) -> Self {
+    pub fn arwah_pick(range: &Option<ArwahPortRange>, ports: Option<Vec<u16>>, order: ArwahScanOrder) -> Self {
         match order {
             ArwahScanOrder::Serial if ports.is_none() => {
                 let range = range.as_ref().unwrap();
-                ArwahStrategy::Serial(ArwahSerialRange {
-                    start: range.start,
-                    end: range.end,
-                })
+                ArwahStrategy::Serial(ArwahSerialRange { start: range.start, end: range.end })
             }
             ArwahScanOrder::Random if ports.is_none() => {
                 let range = range.as_ref().unwrap();
-                ArwahStrategy::Random(ArwahRandomRange {
-                    start: range.start,
-                    end: range.end,
-                })
+                ArwahStrategy::Random(ArwahRandomRange { start: range.start, end: range.end })
             }
             ArwahScanOrder::Serial => ArwahStrategy::Manual(ports.unwrap()),
             ArwahScanOrder::Random => {
@@ -105,16 +95,14 @@ mod tests {
 
     #[test]
     fn serial_strategy_with_ports() {
-        let strategy =
-            ArwahStrategy::arwah_pick(&None, Some(vec![80, 443]), ArwahScanOrder::Serial);
+        let strategy = ArwahStrategy::arwah_pick(&None, Some(vec![80, 443]), ArwahScanOrder::Serial);
         let result = strategy.arwah_order();
         assert_eq!(vec![80, 443], result);
     }
 
     #[test]
     fn random_strategy_with_ports() {
-        let strategy =
-            ArwahStrategy::arwah_pick(&None, Some((1..10).collect()), ArwahScanOrder::Random);
+        let strategy = ArwahStrategy::arwah_pick(&None, Some((1..10).collect()), ArwahScanOrder::Random);
         let mut result = strategy.arwah_order();
         let expected_range = (1..10).collect::<Vec<u16>>();
         assert_ne!(expected_range, result);

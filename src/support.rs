@@ -1,22 +1,18 @@
+use crate::centrifuge::service::arwah_parse_eth;
+
+extern crate libfuzzer_sys;
+
 #[macro_export]
 macro_rules! warning {
     ($name:expr) => {
-        println!(
-            "[ ETA ]: {} {}",
-            ansi_term::Colour::Red.bold().paint("[!]"),
-            $name
-        )
+        println!("[ ETA ]: {} {}", ansi_term::Colour::Red.bold().paint("[!]"), $name)
     };
     ($name:expr, $greppable:expr, $accessible:expr) => {
         if !$greppable {
             if $accessible {
                 println!("[ ETA ]: {}", $name);
             } else {
-                println!(
-                    "[ ETA ]: {} {}",
-                    ansi_term::Colour::Red.bold().paint("[!]"),
-                    $name
-                )
+                println!("[ ETA ]: {} {}", ansi_term::Colour::Red.bold().paint("[!]"), $name)
             }
         }
     };
@@ -25,22 +21,14 @@ macro_rules! warning {
 #[macro_export]
 macro_rules! detail {
     ($name:expr) => {
-        println!(
-            "[ ETA ]: {} {}",
-            ansi_term::Colour::Blue.bold().paint("[!]"),
-            $name
-        )
+        println!("[ ETA ]: {} {}", ansi_term::Colour::Blue.bold().paint("[!]"), $name)
     };
     ($name:expr, $greppable:expr, $accessible:expr) => {
         if !$greppable {
             if $accessible {
                 println!("[ ETA ]: {}", $name);
             } else {
-                println!(
-                    "[ ETA ]: {} {}",
-                    ansi_term::Colour::Blue.bold().paint("[!]"),
-                    $name
-                )
+                println!("[ ETA ]: {} {}", ansi_term::Colour::Blue.bold().paint("[!]"), $name)
             }
         }
     };
@@ -49,22 +37,14 @@ macro_rules! detail {
 #[macro_export]
 macro_rules! output {
     ($name:expr) => {
-        println!(
-            "[ ETA ]: {} {}",
-            ansi_term::Colour::RGB(0, 255, 9).bold().paint("[>]"),
-            $name
-        );
+        println!("[ ETA ]: {} {}", ansi_term::Colour::RGB(0, 255, 9).bold().paint("[>]"), $name);
     };
     ($name:expr, $greppable:expr, $accessible:expr) => {
         if !$greppable {
             if $accessible {
                 println!("[ ETA ]: {}", $name);
             } else {
-                println!(
-                    "[ ETA ]: {} {}",
-                    ansi_term::Colour::RGB(0, 255, 9).bold().paint("[>]"),
-                    $name
-                );
+                println!("[ ETA ]: {} {}", ansi_term::Colour::RGB(0, 255, 9).bold().paint("[>]"), $name);
             }
         }
     };
@@ -83,3 +63,8 @@ macro_rules! opening {
         println!("{}\n", random_quote);
     };
 }
+
+#[cfg(feature = "fuzz")]
+fuzz_target!(|data: &[u8]| {
+    let _ = arwah_parse_eth(&data);
+});

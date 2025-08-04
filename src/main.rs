@@ -2,18 +2,35 @@
 #![warn(clippy::pedantic)]
 #![allow(clippy::doc_markdown, clippy::if_not_else, clippy::non_ascii_literal)]
 
+use anyhow::{Context, Error, Result, anyhow, bail};
+use clap::{CommandFactory, Parser};
 use colorful::{Color, Colorful};
+use env_logger::Env;
 use futures::executor::block_on;
+use log::{debug, info, warn};
 use std::collections::HashMap;
+use std::convert::TryInto;
+use std::fmt;
+use std::io::{self, IsTerminal, stdout};
 use std::net::IpAddr;
 use std::string::ToString;
+use std::sync::{Arc, Mutex, mpsc};
+use std::thread;
 use std::time::Duration;
 
 use arwah::address::arwah_parse_addresses;
 use arwah::benchmark::benchmark::{ArwahBenchmark, ArwahNamedTimer};
+use arwah::centrifuge;
+use arwah::cli;
+use arwah::cli::ArwahArgs;
+use arwah::fmt as ArwahFmt;
 use arwah::input::{self, ArwahConfig, ArwahOpts, ArwahScriptsRequired};
+use arwah::link::ArwahDataLink;
+use arwah::network;
+use arwah::sandbox;
 use arwah::scanner::service::ArwahScanner;
 use arwah::scripts::service::{ArwahScript, ArwahScriptFile, arwah_init_scripts};
+use arwah::sniff;
 use arwah::strategy::service::ArwahStrategy;
 use arwah::{detail, opening, output, warning};
 
@@ -22,7 +39,6 @@ extern crate dirs;
 
 #[cfg(unix)]
 const ARWAH_DEFAULT_FILE_DESCRIPTORS_LIMIT: u64 = 8000;
-// Safest batch size based on experimentation
 const ARWAH_AVERAGE_BATCH_SIZE: u16 = 3000;
 
 #[macro_use]
@@ -38,16 +54,16 @@ fn arwah_opening(opts: &ArwahOpts) {
                      ¶   ¶          ¶    ¶
                      ¶  ¶¶         ¶¶   ¶
                     ¶¶  ¶¶¶       ¶¶¶  ¶¶
-             ¶      ¶¶   ¶¶¶     ¶¶¶   ¶¶          ¶
-            ¶¶      ¶¶   ¶¶¶     ¶¶¶    ¶¶        ¶¶
+             ¶      ¶¶   ¶¶¶     ¶¶¶   ¶¶         ¶
+            ¶¶      ¶¶   ¶¶¶     ¶¶¶    ¶¶       ¶¶
             ¶¶      ¶¶    ¶¶¶¶   ¶¶¶¶    ¶¶      ¶¶
             ¶¶     ¶¶¶    ¶¶¶¶  ¶¶¶¶¶    ¶¶¶    ¶¶¶
-        ¶  ¶¶¶    ¶¶¶¶    ¶¶¶¶   ¶¶¶¶    ¶¶¶¶  ¶¶¶¶  ¶
-       ¶¶ ¶¶¶¶¶  ¶¶¶¶   ¶¶¶¶¶   ¶¶¶¶¶   ¶¶¶¶  ¶¶¶¶¶ ¶¶
-       ¶¶ ¶¶¶¶¶  ¶¶¶¶¶¶¶¶¶¶¶     ¶¶¶¶¶¶¶¶¶¶¶  ¶¶¶¶¶ ¶¶
-       ¶¶ ¶¶¶¶¶  ¶¶¶¶¶¶¶¶¶¶¶     ¶¶¶¶¶¶¶¶¶¶¶  ¶¶¶¶¶ ¶¶
-      ¶¶¶  ¶¶¶¶   ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶   ¶¶¶¶  ¶¶¶
-     ¶¶¶¶  ¶¶¶¶   ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶   ¶¶¶¶  ¶¶¶¶
+        ¶  ¶¶¶    ¶¶¶¶    ¶¶¶¶   ¶¶¶¶    ¶¶¶¶  ¶¶¶¶   ¶
+       ¶¶ ¶¶¶¶¶  ¶¶¶¶   ¶¶¶¶¶   ¶¶¶¶¶   ¶¶¶¶  ¶¶¶¶¶   ¶¶
+       ¶¶ ¶¶¶¶¶  ¶¶¶¶¶¶¶¶¶¶¶     ¶¶¶¶¶¶¶¶¶¶¶  ¶¶¶¶¶   ¶¶
+       ¶¶ ¶¶¶¶¶  ¶¶¶¶¶¶¶¶¶¶¶     ¶¶¶¶¶¶¶¶¶¶¶  ¶¶¶¶¶   ¶¶
+      ¶¶¶  ¶¶¶¶   ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶   ¶¶¶¶    ¶¶¶
+     ¶¶¶¶  ¶¶¶¶   ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶   ¶¶¶¶    ¶¶¶¶
      ¶¶¶¶   ¶¶¶¶¶ ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶ ¶¶¶¶¶   ¶¶¶¶
      ¶¶¶¶   ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶   ¶¶¶¶
     ¶¶¶¶¶  ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶  ¶¶¶¶
@@ -57,10 +73,10 @@ fn arwah_opening(opts: &ArwahOpts) {
     ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶
      ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶
     ¶¶¶¶¶          ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶            ¶¶¶¶¶
-    ¶¶¶¶¶¶             ¶¶¶¶¶¶¶¶¶¶¶¶¶              ¶¶¶¶¶¶
-     ¶¶¶¶¶¶¶             ¶¶¶¶¶¶¶¶¶              ¶¶¶¶¶¶
-      ¶¶¶¶¶¶¶¶             ¶¶¶¶¶             ¶¶¶¶¶¶¶¶
-        ¶¶¶¶¶¶¶¶¶¶          ¶¶¶           ¶¶¶¶¶¶¶¶¶¶
+    ¶¶¶¶¶¶           ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶              ¶¶¶¶¶¶
+     ¶¶¶¶¶¶¶           ¶¶¶¶¶¶¶¶¶¶¶              ¶¶¶¶¶¶
+      ¶¶¶¶¶¶¶¶           ¶¶¶¶¶¶¶             ¶¶¶¶¶¶¶¶
+        ¶¶¶¶¶¶¶¶¶¶         ¶¶¶¶           ¶¶¶¶¶¶¶¶¶¶
         ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶
             ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶   ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶
                 ¶¶¶¶¶¶¶¶¶¶      ¶¶¶¶¶¶¶¶¶¶
@@ -69,10 +85,9 @@ fn arwah_opening(opts: &ArwahOpts) {
                 ¶¶¶¶¶¶¶¶¶ ¶¶¶¶¶ ¶¶¶¶¶¶¶¶¶
                 ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶
                 ¶¶¶  ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶  ¶¶¶
-                ¶¶  ¶¶¶¶  ¶¶¶¶¶  ¶¶¶¶  ¶¶
-                    ¶¶¶¶  ¶¶¶¶¶  ¶¶¶¶
+                 ¶¶  ¶¶¶¶  ¶¶¶¶¶  ¶¶¶¶  ¶¶
+                     ¶¶¶¶  ¶¶¶¶¶  ¶¶¶¶
 
-                    
                                                    mm        
       @@                                           @@@        
      m@@m                                          @@        
@@ -84,10 +99,8 @@ fn arwah_opening(opts: &ArwahOpts) {
   !*      !!    !:         !!!    !:!    !!   :!   !:    !:  
 : : :   : ::: : :::         :      :     :!: : !: : :   : : :
                                                              
-                                                             
 "#;
     println!("{}", s.gradient(Color::Green).bold());
-
     let info = r#"________________________________________
         :          Abu Ayyub Al Ansar          :
         :           Abu Ali Al Ansar           :
@@ -96,15 +109,8 @@ fn arwah_opening(opts: &ArwahOpts) {
         --------------------------------------"#;
     println!("{}", info.gradient(Color::Yellow).bold());
     opening!();
-    let config_path = opts
-        .config_path
-        .clone()
-        .unwrap_or_else(input::arwah_default_config_path);
-    detail!(
-        format!("The config file is expected to be at {config_path:?}"),
-        opts.greppable,
-        opts.accessible
-    );
+    let config_path = opts.config_path.clone().unwrap_or_else(input::arwah_default_config_path);
+    detail!(format!("The config file is expected to be at {config_path:?}"), opts.greppable, opts.accessible);
 }
 
 fn arwah_adjust_ulimit_size(opts: &ArwahOpts) -> u64 {
@@ -112,17 +118,9 @@ fn arwah_adjust_ulimit_size(opts: &ArwahOpts) -> u64 {
 
     if let Some(limit) = opts.ulimit {
         if Resource::NOFILE.set(limit, limit).is_ok() {
-            detail!(
-                format!("Automatically increasing ulimit value to {limit}."),
-                opts.greppable,
-                opts.accessible
-            );
+            detail!(format!("Automatically increasing ulimit value to {limit}."), opts.greppable, opts.accessible);
         } else {
-            warning!(
-                "ERROR. Failed to set ulimit value.",
-                opts.greppable,
-                opts.accessible
-            );
+            warning!("ERROR. Failed to set ulimit value.", opts.greppable, opts.accessible);
         }
     }
     let (soft, _) = Resource::NOFILE.get().unwrap();
@@ -131,24 +129,18 @@ fn arwah_adjust_ulimit_size(opts: &ArwahOpts) -> u64 {
 
 #[cfg(unix)]
 fn arwah_inter_batch_size(opts: &ArwahOpts, ulimit: u64) -> u16 {
-    use std::convert::TryInto;
-
     let mut batch_size: u64 = opts.batch_size.into();
 
     if ulimit < batch_size {
-        warning!(
-            "File limit is lower than default batch size. Consider upping with --ulimit. May cause harm to sensitive servers",
-            opts.greppable,
-            opts.accessible
-        );
+        warning!("[ ETA ]: File limit is lower than default batch size. Consider upping with --ulimit. May cause harm to sensitive servers", opts.greppable, opts.accessible);
 
         if ulimit < ARWAH_AVERAGE_BATCH_SIZE.into() {
             warning!(
-                "Your file limit is very small, which negatively impacts RustScan's speed. Use the Docker image, or up the Ulimit with '--ulimit 5000'. ",
+                "[ ETA ]: Your file limit is very small, which negatively impacts RustScan's speed. Use the Docker image, or up the Ulimit with '--ulimit 5000'. ",
                 opts.greppable,
                 opts.accessible
             );
-            info!("Halving batch_size because ulimit is smaller than average batch size");
+            info!("[ ETA ]: Halving batch_size because ulimit is smaller than average batch size");
             batch_size = ulimit / 2;
         } else if ulimit > ARWAH_DEFAULT_FILE_DESCRIPTORS_LIMIT {
             info!("Batch size is now average batch size");
@@ -157,18 +149,88 @@ fn arwah_inter_batch_size(opts: &ArwahOpts, ulimit: u64) -> u16 {
             batch_size = ulimit - 100;
         }
     } else if ulimit + 2 > batch_size && (opts.ulimit.is_none()) {
-        detail!(
-            format!(
-                "File limit higher than batch size. Can increase speed by increasing batch size '-b {}'.",
-                ulimit - 100
-            ),
-            opts.greppable,
-            opts.accessible
-        );
+        detail!(format!("[ ETA ]: File limit higher than batch size. Can increase speed by increasing batch size '-b {}'.", ulimit - 100), opts.greppable, opts.accessible);
     }
-    batch_size
-        .try_into()
-        .expect("[ ETA ]: Couldn't fit the batch size into a u16.")
+    batch_size.try_into().expect("[ ETA ]: Couldn't fit the batch size into a u16.")
+}
+
+fn arwah_sniffer() -> Result<()> {
+    env_logger::init_from_env(Env::default().default_filter_or("arwah=warn"));
+    let mut args = ArwahArgs::parse();
+
+    if let Some(shell) = args.gen_completions {
+        clap_complete::generate(shell, &mut ArwahArgs::command(), "arwah", &mut stdout());
+        return Ok(());
+    }
+    sandbox::service::arwah_activate_stage_o(args.insecure_disable_seccomp).context("[ ETA ]: Failed to init sandbox stage o")?;
+
+    let device = if let Some(dev) = args.device { dev } else { sniff::arwah_default_interface().context("[ ETA [: Failed to get default interface")? };
+
+    let layout = if args.json {
+        ArwahFmt::ArwahLayout::Json
+    } else if args.debugging {
+        ArwahFmt::ArwahLayout::Debugging
+    } else {
+        ArwahFmt::ArwahLayout::Compact
+    };
+
+    let colors = io::stdout().is_terminal();
+    let config = ArwahFmt::ArwahConfig::arwah_new(layout, args.verbose, colors);
+
+    let cap = if args.read {
+        if args.threads.is_none() {
+            debug!("Setting thread default to 1 due to -r");
+            args.threads = Some(1);
+        }
+
+        let cap = sniff::arwah_open_file(&device)?;
+        eprintln!("Reading from file: {:?}", device);
+        cap
+    } else {
+        let cap = sniff::arwah_open(&device, &sniff::ArwahConfig { promisc: args.promisc, immediate_mode: true })?;
+
+        let verbosity = config.arwah_filter().verbosity;
+        eprintln!("Listening on device: {:?}, verbosity {}/4", device, verbosity);
+        cap
+    };
+    let threads = args.threads.unwrap_or_else(num_cpus::get);
+    debug!("[ ETA ]: Using {} threads", threads);
+    let datalink = ArwahDataLink::arwah_from_linktype(cap.arwah_datalink())?;
+    let filter = config.arwah_filter();
+    let (tx, rx) = mpsc::sync_channel(256);
+    let cap = Arc::new(Mutex::new(cap));
+    sandbox::service::arwah_activate_stage_t(args.insecure_disable_seccomp).context("[ ETA ]: Failed to init sandbox stage2")?;
+
+    for _ in 0..threads {
+        let cap = cap.clone();
+        let datalink = datalink.clone();
+        let filter = filter.clone();
+        let tx = tx.clone();
+        thread::spawn(move || {
+            loop {
+                let packet = {
+                    let mut cap = cap.lock().unwrap();
+                    cap.arwah_next_pkt()
+                };
+
+                if let Ok(Some(packet)) = packet {
+                    let packet = centrifuge::service::arwah_parse(&datalink, &packet.data);
+                    if filter.arwah_matches(&packet) {
+                        tx.send(packet).unwrap()
+                    }
+                } else {
+                    debug!("[ ETA ]: End of packet stream, shutting down reader thread");
+                    break;
+                }
+            }
+        });
+    }
+    drop(tx);
+    let format = config.arwah_format();
+    for packet in rx.iter() {
+        format.arwah_print(packet);
+    }
+    Ok(())
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -183,21 +245,16 @@ fn main() {
     let mut opts: ArwahOpts = ArwahOpts::arwah_read();
     let config = ArwahConfig::arwah_read(opts.config_path.clone());
     opts.arwah_merge(&config);
-
-    debug!("Main() `opts` arguments are {opts:?}");
+    debug!("[ ETA ]: Main() `opts` arguments are {opts:?}");
 
     let scripts_to_run: Vec<ArwahScriptFile> = match arwah_init_scripts(&opts.scripts) {
         Ok(scripts_to_run) => scripts_to_run,
         Err(e) => {
-            warning!(
-                format!("Initiating scripts failed!\n{e}"),
-                opts.greppable,
-                opts.accessible
-            );
+            warning!(format!("[ ETA ]: Initiating scripts failed!\n{e}"), opts.greppable, opts.accessible);
             std::process::exit(1);
         }
     };
-    debug!("Scripts initialized {:?}", &scripts_to_run);
+    debug!("[ ETA ]: Scripts initialized {:?}", &scripts_to_run);
 
     if !opts.greppable && !opts.accessible && !opts.no_banner {
         arwah_opening(&opts);
@@ -205,11 +262,7 @@ fn main() {
     let ips: Vec<IpAddr> = arwah_parse_addresses(&opts);
 
     if ips.is_empty() {
-        warning!(
-            "No IPs could be resolved, aborting scan.",
-            opts.greppable,
-            opts.accessible
-        );
+        warning!("[ ETA ]: No IPs could be resolved, aborting scan.", opts.greppable, opts.accessible);
         std::process::exit(1);
     }
 
@@ -238,22 +291,19 @@ fn main() {
     let mut ports_per_ip = HashMap::new();
 
     for socket in scan_result {
-        ports_per_ip
-            .entry(socket.ip())
-            .or_insert_with(Vec::new)
-            .push(socket.port());
+        ports_per_ip.entry(socket.ip()).or_insert_with(Vec::new).push(socket.port());
     }
 
     for ip in ips {
         if ports_per_ip.contains_key(&ip) {
             continue;
         }
-        let x = format!("Looks like I didn't find any open ports for {:?}. This is usually caused by a high batch size.
+        let x = format!(
+            "Looks like I didn't find any open ports for {:?}. This is usually caused by a high batch size.
         \n*I used {} batch size, consider lowering it with {} or a comfortable number for your system.
         \n Alternatively, increase the timeout if your ping is high. Rustscan -t 2000 for 2000 milliseconds (2s) timeout.\n",
-        ip,
-        opts.batch_size,
-        "'arwah -b <batch_size> -a <ip address>'");
+            ip, opts.batch_size, "'arwah -b <batch_size> -a <ip address>'"
+        );
         warning!(x, opts.greppable, opts.accessible);
     }
 
@@ -276,28 +326,13 @@ fn main() {
                     let mut call_f = script_f.call_format.unwrap();
                     call_f.push(' ');
                     call_f.push_str(user_extra_args);
-                    output!(
-                        format!(
-                            "Running script {:?} on ip {}\nDepending on the complexity of the script, results may take some time to appear.",
-                            call_f, &ip
-                        ),
-                        opts.greppable,
-                        opts.accessible
-                    );
+                    output!(format!("Running script {:?} on ip {}\nDepending on the complexity of the script, results may take some time to appear.", call_f, &ip), opts.greppable, opts.accessible);
                     debug!("Call format {call_f}");
                     script_f.call_format = Some(call_f);
                 }
             }
+            let script = ArwahScript::arwah_build(script_f.path, *ip, ports.clone(), script_f.port, script_f.ports_separator, script_f.tags, script_f.call_format);
 
-            let script = ArwahScript::arwah_build(
-                script_f.path,
-                *ip,
-                ports.clone(),
-                script_f.port,
-                script_f.ports_separator,
-                script_f.tags,
-                script_f.call_format,
-            );
             match script.arwah_run() {
                 Ok(script_result) => {
                     detail!(script_result.to_string(), opts.greppable, opts.accessible);
@@ -312,13 +347,13 @@ fn main() {
     benchmarks.arwah_push(script_bench);
     arwah_bench.arwah_end();
     benchmarks.arwah_push(arwah_bench);
-    debug!("Benchmarks raw {benchmarks:?}");
-    info!("{}", benchmarks.arwah_summary());
+    debug!("[ ETA ]: Benchmarks raw {benchmarks:?}");
+    info!("[ ETA ]: {}", benchmarks.arwah_summary());
+    arwah_sniffer();
 }
 
 #[cfg(test)]
 mod tests {
-
     use super::{ArwahOpts, arwah_opening};
     #[cfg(unix)]
     use super::{arwah_adjust_ulimit_size, arwah_inter_batch_size};
@@ -326,10 +361,7 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn batch_size_lowered() {
-        let opts = ArwahOpts {
-            batch_size: 50_000,
-            ..Default::default()
-        };
+        let opts = ArwahOpts { batch_size: 50_000, ..Default::default() };
         let batch_size = arwah_inter_batch_size(&opts, 120);
         assert!(batch_size < opts.batch_size);
     }
@@ -337,31 +369,21 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn batch_size_lowered_average_size() {
-        let opts = ArwahOpts {
-            batch_size: 50_000,
-            ..Default::default()
-        };
+        let opts = ArwahOpts { batch_size: 50_000, ..Default::default() };
         let batch_size = arwah_inter_batch_size(&opts, 9_000);
         assert!(batch_size == 3_000);
     }
     #[test]
     #[cfg(unix)]
     fn batch_size_equals_ulimit_lowered() {
-        let opts = ArwahOpts {
-            batch_size: 50_000,
-            ..Default::default()
-        };
+        let opts = ArwahOpts { batch_size: 50_000, ..Default::default() };
         let batch_size = arwah_inter_batch_size(&opts, 5_000);
         assert!(batch_size == 4_900);
     }
     #[test]
     #[cfg(unix)]
     fn batch_size_adjusted_2000() {
-        let opts = ArwahOpts {
-            batch_size: 50_000,
-            ulimit: Some(2_000),
-            ..Default::default()
-        };
+        let opts = ArwahOpts { batch_size: 50_000, ulimit: Some(2_000), ..Default::default() };
         let batch_size = arwah_adjust_ulimit_size(&opts);
         assert!(batch_size == 2_000);
     }
@@ -369,21 +391,14 @@ mod tests {
     #[test]
     #[cfg(unix)]
     fn test_high_ulimit_no_greppable_mode() {
-        let opts = ArwahOpts {
-            batch_size: 10,
-            greppable: false,
-            ..Default::default()
-        };
+        let opts = ArwahOpts { batch_size: 10, greppable: false, ..Default::default() };
         let batch_size = arwah_inter_batch_size(&opts, 1_000_000);
         assert!(batch_size == opts.batch_size);
     }
 
     #[test]
     fn test_print_opening_no_panic() {
-        let opts = ArwahOpts {
-            ulimit: Some(2_000),
-            ..Default::default()
-        };
+        let opts = ArwahOpts { ulimit: Some(2_000), ..Default::default() };
         arwah_opening(&opts);
     }
 }

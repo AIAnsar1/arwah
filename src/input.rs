@@ -27,25 +27,15 @@ pub struct ArwahPortRange {
 
 #[cfg(not(tarpaulin_include))]
 fn arwah_parse_range(input: &str) -> Result<ArwahPortRange, String> {
-    let range = input
-        .split('-')
-        .map(str::parse)
-        .collect::<Result<Vec<u16>, std::num::ParseIntError>>();
+    let range = input.split('-').map(str::parse).collect::<Result<Vec<u16>, std::num::ParseIntError>>();
 
     if range.is_err() {
-        return Err(String::from(
-            "[ ETA ]: the range format must be 'start-end'. Example: 1-1000.",
-        ));
+        return Err(String::from("[ ETA ]: the range format must be 'start-end'. Example: 1-1000."));
     }
 
     match range.unwrap().as_slice() {
-        [start, end] => Ok(ArwahPortRange {
-            start: *start,
-            end: *end,
-        }),
-        _ => Err(String::from(
-            "[ ETA ]: the range format must be 'start-end'. Example: 1-1000.",
-        )),
+        [start, end] => Ok(ArwahPortRange { start: *start, end: *end }),
+        _ => Err(String::from("[ ETA ]: the range format must be 'start-end'. Example: 1-1000.")),
     }
 }
 
@@ -141,10 +131,7 @@ impl ArwahOpts {
         let mut opts = ArwahOpts::parse();
 
         if opts.ports.is_none() && opts.range.is_none() {
-            opts.range = Some(ArwahPortRange {
-                start: ARW_LOWEST_PORT_NUMBER,
-                end: ARW_TOP_PORT_NUMBER,
-            });
+            opts.range = Some(ArwahPortRange { start: ARW_LOWEST_PORT_NUMBER, end: ARW_TOP_PORT_NUMBER });
         }
 
         opts
@@ -167,10 +154,7 @@ impl ArwahOpts {
                 )+
             }
         }
-        arwah_merge_required!(
-            addresses, greppable, accessible, batch_size, timeout, tries, scan_order, scripts,
-            command, udp
-        );
+        arwah_merge_required!(addresses, greppable, accessible, batch_size, timeout, tries, scan_order, scripts, command, udp);
     }
 
     fn arwah_merge_optional(&mut self, config: &ArwahConfig) {
@@ -340,10 +324,7 @@ mod tests {
     fn opts_merge_optional_arguments() {
         let mut opts = ArwahOpts::default();
         let mut config = ArwahConfig::default();
-        config.range = Some(ArwahPortRange {
-            start: 1,
-            end: 1_000,
-        });
+        config.range = Some(ArwahPortRange { start: 1, end: 1_000 });
         config.ulimit = Some(1_000);
         config.resolver = Some("1.1.1.1".to_owned());
 

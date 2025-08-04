@@ -13,9 +13,7 @@ pub fn main() {
     let mut data = String::new();
     let file = File::open(&file_path).expect("File not found.");
     let mut file_buf = BufReader::new(file);
-    file_buf
-        .read_to_string(&mut data)
-        .expect("unable to read file");
+    file_buf.read_to_string(&mut data).expect("unable to read file");
     let mut fp_map: BTreeMap<i32, String> = BTreeMap::new();
     let mut count = 0;
     let mut capturing = false;
@@ -58,37 +56,19 @@ fn arwah_generate_code(port_payload_map: BTreeMap<Vec<u16>, Vec<u8>>) {
 
     for (ports, payloads) in port_payload_map {
         generated_code.push_str("    map.insert(vec![");
-        generated_code.push_str(
-            &ports
-                .iter()
-                .map(|&p| p.to_string())
-                .collect::<Vec<_>>()
-                .join(","),
-        );
+        generated_code.push_str(&ports.iter().map(|&p| p.to_string()).collect::<Vec<_>>().join(","));
         generated_code.push_str("], vec![");
-        generated_code.push_str(
-            &payloads
-                .iter()
-                .map(|&p| p.to_string())
-                .collect::<Vec<_>>()
-                .join(","),
-        );
+        generated_code.push_str(&payloads.iter().map(|&p| p.to_string()).collect::<Vec<_>>().join(","));
         generated_code.push_str("]);\n");
     }
     generated_code.push_str("    map\n");
     generated_code.push_str("}\n\n");
-    generated_code.push_str(
-        "static PARSED_DATA: Lazy<BTreeMap<Vec<u16>, Vec<u8>>> = Lazy::new(generated_data);\n",
-    );
+    generated_code.push_str("static PARSED_DATA: Lazy<BTreeMap<Vec<u16>, Vec<u8>>> = Lazy::new(generated_data);\n");
     generated_code.push_str("pub fn get_parsed_data() -> &'static BTreeMap<Vec<u16>, Vec<u8>> {\n");
     generated_code.push_str("    &PARSED_DATA\n");
     generated_code.push_str("}\n");
     fs::write(dest_path, generated_code).unwrap();
-    Command::new("cargo")
-        .arg("fmt")
-        .arg("--all")
-        .output()
-        .expect("Failed to execute cargo fmt");
+    Command::new("cargo").arg("fmt").arg("--all").output().expect("Failed to execute cargo fmt");
 }
 
 fn arwah_ports_v(fp_map: &BTreeMap<i32, String>) -> BTreeMap<i32, Vec<u16>> {
@@ -162,10 +142,7 @@ fn arwah_parser(payload: &str) -> Vec<u8> {
     bytes
 }
 
-fn arwah_port_payload_map(
-    pb_linenr: BTreeMap<i32, Vec<u16>>,
-    payb_linenr: BTreeMap<i32, Vec<u8>>,
-) -> BTreeMap<Vec<u16>, Vec<u8>> {
+fn arwah_port_payload_map(pb_linenr: BTreeMap<i32, Vec<u16>>, payb_linenr: BTreeMap<i32, Vec<u8>>) -> BTreeMap<Vec<u16>, Vec<u8>> {
     let mut ppm_fin: BTreeMap<Vec<u16>, Vec<u8>> = BTreeMap::new();
 
     for (port_linenr, ports) in pb_linenr {

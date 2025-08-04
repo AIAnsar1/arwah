@@ -31,38 +31,12 @@ pub struct ArwahScanner {
 
 #[allow(clippy::too_many_arguments)]
 impl ArwahScanner {
-    pub fn arwah_new(
-        ips: &[IpAddr],
-        batch_size: u16,
-        timeout: Duration,
-        tries: u8,
-        greppable: bool,
-        strategy: ArwahStrategy,
-        accessible: bool,
-        exclude_ports: Vec<u16>,
-        udp: bool,
-    ) -> Self {
-        Self {
-            batch_size,
-            timeout,
-            tries: NonZeroU8::new(std::cmp::max(tries, 1)).unwrap(),
-            greppable,
-            strategy,
-            ips: ips.iter().map(ToOwned::to_owned).collect(),
-            accessible,
-            exclude_ports,
-            udp,
-        }
+    pub fn arwah_new(ips: &[IpAddr], batch_size: u16, timeout: Duration, tries: u8, greppable: bool, strategy: ArwahStrategy, accessible: bool, exclude_ports: Vec<u16>, udp: bool) -> Self {
+        Self { batch_size, timeout, tries: NonZeroU8::new(std::cmp::max(tries, 1)).unwrap(), greppable, strategy, ips: ips.iter().map(ToOwned::to_owned).collect(), accessible, exclude_ports, udp }
     }
 
     pub async fn arwah_run(&self) -> Vec<SocketAddr> {
-        let ports: Vec<u16> = self
-            .strategy
-            .arwah_order()
-            .iter()
-            .filter(|&port| !self.exclude_ports.contains(port))
-            .copied()
-            .collect();
+        let ports: Vec<u16> = self.strategy.arwah_order().iter().filter(|&port| !self.exclude_ports.contains(port)).copied().collect();
         let mut socket_iterator: ArwahSocket = ArwahSocket::arwah_new(&self.ips, &ports);
         let mut open_sockets: Vec<SocketAddr> = Vec::new();
         let mut ftrs = FuturesUnordered::new();
@@ -107,11 +81,7 @@ impl ArwahScanner {
         open_sockets
     }
 
-    async fn arwah_scan_socket(
-        &self,
-        socket: SocketAddr,
-        udp_map: BTreeMap<Vec<u16>, Vec<u8>>,
-    ) -> io::Result<SocketAddr> {
+    async fn arwah_scan_socket(&self, socket: SocketAddr, udp_map: BTreeMap<Vec<u16>, Vec<u8>>) -> io::Result<SocketAddr> {
         if self.udp {
             return self.arwah_scan_udp_scoket(socket, udp_map).await;
         }
@@ -120,10 +90,7 @@ impl ArwahScanner {
         for nr_try in 1..=tries {
             match self.arwah_connect(socket).await {
                 Ok(tcp_stream) => {
-                    debug!(
-                        "[ ETA ]: Connection was successful, shutting down stream {}",
-                        &socket
-                    );
+                    debug!("[ ETA ]: Connection was successful, shutting down stream {}", &socket);
 
                     if let Err(e) = tcp_stream.shutdown(Shutdown::Both) {
                         debug!("[ ETA ]: Shutdown stream error {}", &e);
@@ -134,12 +101,7 @@ impl ArwahScanner {
                 }
                 Err(e) => {
                     let mut error_string = e.to_string();
-                    assert!(
-                        !error_string
-                            .to_lowercase()
-                            .contains("[ ETA ]: too many open files"),
-                        "Too many open files. Please reduce batch size. The default is 5000. Try -b 2500."
-                    );
+                    assert!(!error_string.to_lowercase().contains("[ ETA ]: too many open files"), "Too many open files. Please reduce batch size. The default is 5000. Try -b 2500.");
 
                     if nr_try == tries {
                         error_string.push(' ');
@@ -152,11 +114,7 @@ impl ArwahScanner {
         unreachable!();
     }
 
-    async fn arwah_scan_udp_scoket(
-        &self,
-        socket: SocketAddr,
-        udp_map: BTreeMap<Vec<u16>, Vec<u8>>,
-    ) -> io::Result<SocketAddr> {
+    async fn arwah_scan_udp_scoket(&self, socket: SocketAddr, udp_map: BTreeMap<Vec<u16>, Vec<u8>>) -> io::Result<SocketAddr> {
         let mut payload: Vec<u8> = Vec::new();
 
         for (kv, vk) in udp_map {
@@ -179,17 +137,11 @@ impl ArwahScanner {
                 }
             }
         }
-        Err(io::Error::other(format!(
-            "[ ETA ]: UDP scan timed-out for all tries on socket {socket}"
-        )))
+        Err(io::Error::other(format!("[ ETA ]: UDP scan timed-out for all tries on socket {socket}")))
     }
 
     async fn arwah_connect(&self, socket: SocketAddr) -> io::Result<TcpStream> {
-        let stream = io::timeout(
-            self.timeout,
-            async move { TcpStream::connect(socket).await },
-        )
-        .await?;
+        let stream = io::timeout(self.timeout, async move { TcpStream::connect(socket).await }).await?;
         Ok(stream)
     }
 
@@ -201,12 +153,7 @@ impl ArwahScanner {
         UdpSocket::bind(local_addr).await
     }
 
-    async fn arwah_udp_scan(
-        &self,
-        socket: SocketAddr,
-        payload: &[u8],
-        wait: Duration,
-    ) -> io::Result<bool> {
+    async fn arwah_udp_scan(&self, socket: SocketAddr, payload: &[u8], wait: Duration) -> io::Result<bool> {
         match self.arwah_udp_bind(socket).await {
             Ok(udp_socket) => {
                 let mut buf = [0u8; 1024];
@@ -257,22 +204,9 @@ mod tests {
     fn scanner_runs() {
         // Makes sure the program still runs and doesn't panic
         let addrs = vec!["127.0.0.1".parse::<IpAddr>().unwrap()];
-        let range = ArwahPortRange {
-            start: 1,
-            end: 1000,
-        };
+        let range = ArwahPortRange { start: 1, end: 1000 };
         let strategy = ArwahStrategy::arwah_pick(&Some(range), None, ArwahScanOrder::Random);
-        let scanner = ArwahScanner::arwah_new(
-            &addrs,
-            10,
-            Duration::from_millis(100),
-            1,
-            true,
-            strategy,
-            true,
-            vec![9000],
-            false,
-        );
+        let scanner = ArwahScanner::arwah_new(&addrs, 10, Duration::from_millis(100), 1, true, strategy, true, vec![9000], false);
         block_on(scanner.arwah_run());
         assert_eq!(1, 1);
     }
@@ -280,66 +214,27 @@ mod tests {
     fn ipv6_scanner_runs() {
         // Makes sure the program still runs and doesn't panic
         let addrs = vec!["::1".parse::<IpAddr>().unwrap()];
-        let range = ArwahPortRange {
-            start: 1,
-            end: 1000,
-        };
+        let range = ArwahPortRange { start: 1, end: 1000 };
         let strategy = ArwahStrategy::arwah_pick(&Some(range), None, ArwahScanOrder::Random);
-        let scanner = ArwahScanner::arwah_new(
-            &addrs,
-            10,
-            Duration::from_millis(100),
-            1,
-            true,
-            strategy,
-            true,
-            vec![9000],
-            false,
-        );
+        let scanner = ArwahScanner::arwah_new(&addrs, 10, Duration::from_millis(100), 1, true, strategy, true, vec![9000], false);
         block_on(scanner.arwah_run());
         assert_eq!(1, 1);
     }
     #[test]
     fn quad_zero_scanner_runs() {
         let addrs = vec!["0.0.0.0".parse::<IpAddr>().unwrap()];
-        let range = ArwahPortRange {
-            start: 1,
-            end: 1000,
-        };
+        let range = ArwahPortRange { start: 1, end: 1000 };
         let strategy = ArwahStrategy::arwah_pick(&Some(range), None, ArwahScanOrder::Random);
-        let scanner = ArwahScanner::arwah_new(
-            &addrs,
-            10,
-            Duration::from_millis(100),
-            1,
-            true,
-            strategy,
-            true,
-            vec![9000],
-            false,
-        );
+        let scanner = ArwahScanner::arwah_new(&addrs, 10, Duration::from_millis(100), 1, true, strategy, true, vec![9000], false);
         block_on(scanner.arwah_run());
         assert_eq!(1, 1);
     }
     #[test]
     fn google_dns_runs() {
         let addrs = vec!["8.8.8.8".parse::<IpAddr>().unwrap()];
-        let range = ArwahPortRange {
-            start: 400,
-            end: 445,
-        };
+        let range = ArwahPortRange { start: 400, end: 445 };
         let strategy = ArwahStrategy::arwah_pick(&Some(range), None, ArwahScanOrder::Random);
-        let scanner = ArwahScanner::arwah_new(
-            &addrs,
-            10,
-            Duration::from_millis(100),
-            1,
-            true,
-            strategy,
-            true,
-            vec![9000],
-            false,
-        );
+        let scanner = ArwahScanner::arwah_new(&addrs, 10, Duration::from_millis(100), 1, true, strategy, true, vec![9000], false);
         block_on(scanner.arwah_run());
         assert_eq!(1, 1);
     }
@@ -349,22 +244,9 @@ mod tests {
         let addrs = vec!["8.8.8.8".parse::<IpAddr>().unwrap()];
 
         // mac should have this automatically scaled down
-        let range = ArwahPortRange {
-            start: 400,
-            end: 600,
-        };
+        let range = ArwahPortRange { start: 400, end: 600 };
         let strategy = ArwahStrategy::arwah_pick(&Some(range), None, ArwahScanOrder::Random);
-        let scanner = ArwahScanner::arwah_new(
-            &addrs,
-            10,
-            Duration::from_millis(100),
-            1,
-            true,
-            strategy,
-            true,
-            vec![9000],
-            false,
-        );
+        let scanner = ArwahScanner::arwah_new(&addrs, 10, Duration::from_millis(100), 1, true, strategy, true, vec![9000], false);
         block_on(scanner.arwah_run());
         assert_eq!(1, 1);
     }
@@ -373,22 +255,9 @@ mod tests {
     fn udp_scan_runs() {
         // Makes sure the program still runs and doesn't panic
         let addrs = vec!["127.0.0.1".parse::<IpAddr>().unwrap()];
-        let range = ArwahPortRange {
-            start: 1,
-            end: 1000,
-        };
+        let range = ArwahPortRange { start: 1, end: 1000 };
         let strategy = ArwahStrategy::arwah_pick(&Some(range), None, ArwahScanOrder::Random);
-        let scanner = ArwahScanner::arwah_new(
-            &addrs,
-            10,
-            Duration::from_millis(100),
-            1,
-            true,
-            strategy,
-            true,
-            vec![9000],
-            true,
-        );
+        let scanner = ArwahScanner::arwah_new(&addrs, 10, Duration::from_millis(100), 1, true, strategy, true, vec![9000], true);
         block_on(scanner.arwah_run());
         assert_eq!(1, 1);
     }
@@ -396,66 +265,27 @@ mod tests {
     fn udp_ipv6_runs() {
         // Makes sure the program still runs and doesn't panic
         let addrs = vec!["::1".parse::<IpAddr>().unwrap()];
-        let range = ArwahPortRange {
-            start: 1,
-            end: 1000,
-        };
+        let range = ArwahPortRange { start: 1, end: 1000 };
         let strategy = ArwahStrategy::arwah_pick(&Some(range), None, ArwahScanOrder::Random);
-        let scanner = ArwahScanner::arwah_new(
-            &addrs,
-            10,
-            Duration::from_millis(100),
-            1,
-            true,
-            strategy,
-            true,
-            vec![9000],
-            true,
-        );
+        let scanner = ArwahScanner::arwah_new(&addrs, 10, Duration::from_millis(100), 1, true, strategy, true, vec![9000], true);
         block_on(scanner.arwah_run());
         assert_eq!(1, 1);
     }
     #[test]
     fn udp_quad_zero_scanner_runs() {
         let addrs = vec!["0.0.0.0".parse::<IpAddr>().unwrap()];
-        let range = ArwahPortRange {
-            start: 1,
-            end: 1000,
-        };
+        let range = ArwahPortRange { start: 1, end: 1000 };
         let strategy = ArwahStrategy::arwah_pick(&Some(range), None, ArwahScanOrder::Random);
-        let scanner = ArwahScanner::arwah_new(
-            &addrs,
-            10,
-            Duration::from_millis(100),
-            1,
-            true,
-            strategy,
-            true,
-            vec![9000],
-            true,
-        );
+        let scanner = ArwahScanner::arwah_new(&addrs, 10, Duration::from_millis(100), 1, true, strategy, true, vec![9000], true);
         block_on(scanner.arwah_run());
         assert_eq!(1, 1);
     }
     #[test]
     fn udp_google_dns_runs() {
         let addrs = vec!["8.8.8.8".parse::<IpAddr>().unwrap()];
-        let range = ArwahPortRange {
-            start: 100,
-            end: 150,
-        };
+        let range = ArwahPortRange { start: 100, end: 150 };
         let strategy = ArwahStrategy::arwah_pick(&Some(range), None, ArwahScanOrder::Random);
-        let scanner = ArwahScanner::arwah_new(
-            &addrs,
-            10,
-            Duration::from_millis(100),
-            1,
-            true,
-            strategy,
-            true,
-            vec![9000],
-            true,
-        );
+        let scanner = ArwahScanner::arwah_new(&addrs, 10, Duration::from_millis(100), 1, true, strategy, true, vec![9000], true);
         block_on(scanner.arwah_run());
         assert_eq!(1, 1);
     }
