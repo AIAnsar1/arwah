@@ -46,13 +46,13 @@ pub struct ArwahOpts {
     #[arg(short, long, value_delimiter = ',')]
     pub addresses: Vec<String>,
 
-    #[arg(short, long, value_delimiter = ',')]
+    #[arg(long, value_delimiter = ',')]
     pub ports: Option<Vec<u16>>,
 
-    #[arg(short, long, conflicts_with = "ports", value_parser = arwah_parse_range)]
+    #[arg(long, conflicts_with = "ports", value_parser = arwah_parse_range)]
     pub range: Option<ArwahPortRange>,
 
-    #[arg(short, long)]
+    #[arg(long)]
     pub no_config: bool,
 
     #[arg(long)]
@@ -103,11 +103,45 @@ pub struct ArwahOpts {
     #[arg(long)]
     pub udp: bool,
 
-    #[arg(short = 's', long = "scan", help = "Enable scanning mode (RustScan functionality)")]
-    pub scan: bool,
-
-    #[arg(short = 'n', long = "sniff", help = "Enable sniffing mode (Sniffglue functionality)")]
+    // Флаги режимов работы
+    #[arg(long = "sniff", help = "Run packet sniffer mode")]
     pub sniff: bool,
+
+    #[arg(long = "both", help = "Run both port scanner and packet sniffer")]
+    pub both: bool,
+
+    // Опции сниффера пакетов (из sniffglue)
+    #[arg(short = 'p', long = "promisc", help = "Set device to promiscuous mode")]
+    pub promisc: bool,
+
+    #[arg(long = "debugging", help = "Enable debugging output")]
+    pub debugging: bool,
+
+    #[arg(short = 'j', long = "json", help = "JSON output format")]
+    pub json: bool,
+
+    #[arg(
+        short = 'v',
+        long = "verbose",
+        action(clap::ArgAction::Count),
+        help = "Increase filter sensitivity to show more (possibly less useful) packets. The default only shows few packets, this flag can be specified multiple times. (maximum: 4)"
+    )]
+    pub verbose: u8,
+
+    #[arg(short = 'r', long = "read", help = "Open device as pcap file")]
+    pub read: bool,
+
+    #[arg(short = 'n', long = "threads", alias = "cpus", help = "Specify the number of threads")]
+    pub threads: Option<usize>,
+
+    #[arg(long, help = "Disable seccomp")]
+    pub insecure_disable_seccomp: bool,
+
+    #[arg(long, hide = true)]
+    pub gen_completions: Option<clap_complete::Shell>,
+
+    #[arg(help = "Network device to listen on")]
+    pub device: Option<String>,
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -129,8 +163,16 @@ pub struct ArwahConfig {
     exclude_ports: Option<Vec<u16>>,
     exclude_addresses: Option<Vec<String>>,
     udp: Option<bool>,
-    scan: Option<bool>,
     sniff: Option<bool>,
+    both: Option<bool>,
+    promisc: Option<bool>,
+    debugging: Option<bool>,
+    json: Option<bool>,
+    verbose: Option<u8>,
+    read: Option<bool>,
+    threads: Option<usize>,
+    insecure_disable_seccomp: Option<bool>,
+    device: Option<String>,
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -162,7 +204,26 @@ impl ArwahOpts {
                 )+
             }
         }
-        arwah_merge_required!(addresses, greppable, accessible, batch_size, timeout, tries, scan_order, scripts, command, udp, scan, sniff);
+        arwah_merge_required!(
+            addresses,
+            greppable,
+            accessible,
+            batch_size,
+            timeout,
+            tries,
+            scan_order,
+            scripts,
+            command,
+            udp,
+            sniff,
+            both,
+            promisc,
+            debugging,
+            json,
+            verbose,
+            read,
+            insecure_disable_seccomp
+        );
     }
 
     fn arwah_merge_optional(&mut self, config: &ArwahConfig) {
@@ -179,7 +240,7 @@ impl ArwahOpts {
         if self.top && config.ports.is_some() {
             self.ports = config.ports.clone();
         }
-        arwah_merge_optional!(range, resolver, ulimit, exclude_ports, exclude_addresses);
+        arwah_merge_optional!(range, resolver, ulimit, exclude_ports, exclude_addresses, threads, device);
     }
 }
 
@@ -206,8 +267,17 @@ impl Default for ArwahOpts {
             exclude_ports: None,
             exclude_addresses: None,
             udp: false,
-            scan: false,
             sniff: false,
+            both: false,
+            promisc: false,
+            debugging: false,
+            json: false,
+            verbose: 0,
+            read: false,
+            threads: None,
+            insecure_disable_seccomp: false,
+            gen_completions: None,
+            device: None,
         }
     }
 }
@@ -271,6 +341,16 @@ mod tests {
                 exclude_ports: None,
                 exclude_addresses: None,
                 udp: Some(false),
+                sniff: Some(false),
+                both: Some(false),
+                promisc: Some(false),
+                debugging: Some(false),
+                json: Some(false),
+                verbose: Some(0),
+                read: Some(false),
+                threads: None,
+                insecure_disable_seccomp: Some(false),
+                device: None,
             }
         }
     }

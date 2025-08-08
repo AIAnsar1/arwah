@@ -96,7 +96,7 @@ fn arwah_opening(opts: &ArwahOpts) {
 : : :   : ::: : :::         :      :     :!: : !: : :   : : :
                                                              
 "#;
-    println!("{}", s.gradient(Color::Green).bold());
+    println!("{}", s.color(Color::Green).bold());
     let info = r#"
           ________________________________________
           :           Tawheed Network!           :
@@ -104,7 +104,7 @@ fn arwah_opening(opts: &ArwahOpts) {
           ----------------------------------------
              
              "#;
-    println!("{}", info.gradient(Color::Yellow).bold());
+    println!("{}", info.color(Color::Yellow).bold());
     opening!();
     let config_path = opts.config_path.clone().unwrap_or_else(input::arwah_default_config_path);
     detail!(format!("The config file is expected to be at {config_path:?}"), opts.greppable, opts.accessible);
@@ -152,18 +152,18 @@ fn arwah_inter_batch_size(opts: &ArwahOpts, ulimit: u64) -> u16 {
 }
 
 fn arwah_sniffer(opts: &ArwahOpts) -> Result<()> {
-    // Use default settings for sniffing mode
-    let promisc = false;
-    let debugging = false;
-    let json = false;
-    let verbose = 1;
-    let read = false;
-    let threads_count = num_cpus::get();
-    let insecure_disable_seccomp = false;
+    // Use CLI options for sniffing mode
+    let promisc = opts.promisc;
+    let debugging = opts.debugging;
+    let json = opts.json;
+    let verbose = if opts.verbose == 0 { 1 } else { opts.verbose };
+    let read = opts.read;
+    let threads_count = opts.threads.unwrap_or_else(num_cpus::get);
+    let insecure_disable_seccomp = opts.insecure_disable_seccomp;
 
     sandbox::service::arwah_activate_stage_o(insecure_disable_seccomp).context("[ ETA ]: Failed to init sandbox stage o")?;
 
-    let device = sniff::arwah_default_interface().context("[ ETA ]: Failed to get default interface")?;
+    let device = opts.device.clone().unwrap_or_else(|| sniff::arwah_default_interface().unwrap_or_else(|_| "eth0".to_string()));
 
     let layout = if json {
         ArwahFmt::ArwahLayout::Json
@@ -245,25 +245,17 @@ fn main() -> Result<()> {
     debug!("[ ETA ]: Main() `opts` arguments are {opts:?}");
 
     // Determine operation mode based on flags
-    match (opts.scan, opts.sniff) {
-        (true, true) => {
-            // Both scanning and sniffing requested
-            arwah_scan_mode(&opts)?;
-            println!("\n[ ETA ]: Scanning completed. Starting packet sniffing...");
-            arwah_sniffer(&opts)?;
-        }
-        (true, false) => {
-            // Only scanning
-            arwah_scan_mode(&opts)?;
-        }
-        (false, true) => {
-            // Only sniffing
-            arwah_sniffer(&opts)?;
-        }
-        (false, false) => {
-            // Default mode - scanning (preserve original behavior)
-            arwah_scan_mode(&opts)?;
-        }
+    if opts.both {
+        // Both scanning and sniffing requested
+        arwah_scan_mode(&opts)?;
+        println!("\n[ ETA ]: Scanning completed. Starting packet sniffing...");
+        arwah_sniffer(&opts)?;
+    } else if opts.sniff {
+        // Only sniffing
+        arwah_sniffer(&opts)?;
+    } else {
+        // Default mode - scanning (preserve original behavior)
+        arwah_scan_mode(&opts)?;
     }
     Ok(())
 }
@@ -331,8 +323,8 @@ fn arwah_scan_mode(opts: &ArwahOpts) -> Result<()> {
         );
         warning!(x, opts.greppable, opts.accessible);
     }
-
     let mut script_bench = ArwahNamedTimer::arwah_start("Scripts");
+
     for (ip, ports) in &ports_per_ip {
         let vec_str_ports: Vec<String> = ports.iter().map(ToString::to_string).collect();
         let ports_str = vec_str_ports.join(",");
