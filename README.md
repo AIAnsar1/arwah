@@ -1,17 +1,15 @@
 # Arwah - Unified Network Security Tool
 
-Arwah is a powerful, unified network security tool that combines the functionality of RustScan (port scanning) and Sniffglue (packet analysis) into a single, efficient Rust application.
-
 ## Features
 
-### 🚀 Port Scanning (RustScan Integration)
+### 🚀 Port Scanning
 - **Ultra-fast port scanning** with customizable batch sizes
 - **Multi-threaded scanning** for maximum performance  
 - **Script integration** for automated vulnerability assessment
 - **Flexible target specification** (IPs, ranges, hostnames)
 - **Greppable output** for easy integration with other tools
 
-### 📡 Packet Analysis (Sniffglue Integration)  
+### 📡 Packet Analysis
 - **Real-time packet capture** and analysis
 - **Multi-protocol support** (TCP, UDP, HTTP, TLS, DNS, DHCP, etc.)
 - **Multiple output formats** (compact, debugging, JSON)
@@ -30,7 +28,7 @@ Arwah is a powerful, unified network security tool that combines the functionali
 
 ```bash
 # Build from source
-git clone https://github.com/your-org/arwah.git
+git clone https://github.com/AIAnsar1/arwah.git
 cd arwah
 cargo build --release
 
@@ -205,9 +203,9 @@ Arwah is built with a modular architecture:
 ```
 arwah/
 ├── src/
-│   ├── scanner/          # Port scanning engine (RustScan)
-│   ├── centrifuge/       # Packet processing (Sniffglue)  
-│   ├── network/          # Protocol parsers
+│   ├── scanner/          # Port scanning engine
+│   ├── ntrifuge/       # Packet processing  
+│   ├─--work/          # Protocol parsers
 │   ├── fmt/              # Output formatting
 │   ├── scripts/          # Script integration
 │   └── main.rs           # Unified CLI interface
@@ -227,14 +225,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## Acknowledgments
 
-- **RustScan** - Fast port scanning functionality
-- **Sniffglue** - Packet analysis and protocol parsing
 - **Rust Community** - For excellent networking and async libraries
 
 ## Security Notice
 
 This tool is intended for authorized security testing and network analysis only. Users are responsible for complying with applicable laws and regulations. Unauthorized network scanning or packet capture may be illegal in your jurisdiction.
-
----
-
-**Abu Ayyub Al Ansar | Abu Ali Al Ansar | Tawheed Network | Free Palestine**
