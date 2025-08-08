@@ -1,7 +1,3 @@
-use crate::centrifuge::service::arwah_parse_eth;
-
-extern crate libfuzzer_sys;
-
 #[macro_export]
 macro_rules! warning {
     ($name:expr) => {
@@ -54,17 +50,8 @@ macro_rules! output {
 macro_rules! opening {
     () => {
         use rand::seq::IndexedRandom;
-        let quotes = vec![
-            "أعوذ بالله من الشيطان الرجيم بسم الله الرحمن الرحيم",
-            "Tawheed Network",
-            "Arwah Network & PORTS IP SERVER Scanner & Sniffer Traffic",
-        ];
+        let quotes = vec!["أعوذ بالله من الشيطان الرجيم بسم الله الرحمن الرحيم", "Arwah Network & PORTS IP SERVER Scanner & Sniffer Traffic"];
         let random_quote = quotes.choose(&mut rand::rng()).unwrap();
         println!("{}\n", random_quote);
     };
 }
-
-#[cfg(feature = "fuzz")]
-fuzz_target!(|data: &[u8]| {
-    let _ = arwah_parse_eth(&data);
-});

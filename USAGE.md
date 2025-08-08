@@ -1,167 +1,104 @@
-# Arwah - Unified Network Scanner and Packet Sniffer
+# Arwah Usage Guide
 
-Arwah объединяет функциональность RustScan (сканирование портов) и Sniffglue (анализ сетевых пакетов) в единый инструмент.
+Arwah is a unified network security tool that combines port scanning (RustScan) and packet analysis (Sniffglue) functionality.
 
-## Режимы работы
+## Basic Usage
 
-### 1. Режим сканирования портов (Scan)
 ```bash
-# Сканирование конкретного IP
-arwah scan -a 192.168.1.1
-
-# Сканирование диапазона портов
-arwah scan -a 192.168.1.1 -p 1-1000
-
-# Сканирование с использованием скриптов
-arwah scan -a 192.168.1.1 -s default
+arwah [MODE FLAGS] [OPTIONS]
 ```
 
-### 2. Режим сниффинга пакетов (Sniff)
+## Mode Flags
+
+### Scanning Mode
+- `--scan` or `-s`: Enable port scanning mode (RustScan functionality)
+- This is the **default mode** if no mode flags are specified
+
+### Sniffing Mode  
+- `--sniff` or `-n`: Enable packet sniffing mode (Sniffglue functionality)
+
+### Combined Mode
+- Use both `--scan --sniff` to run scanning followed by packet sniffing
+
+## Examples
+
+### Port Scanning (Default Mode)
 ```bash
-# Прослушивание сетевого интерфейса
-arwah sniff
+# Basic port scan
+arwah -a 192.168.1.1 -p 80,443
 
-# Прослушивание конкретного интерфейса
-arwah sniff -i eth0
+# Scan with custom settings
+arwah -a 192.168.1.0/24 -r 1-1000 --batch-size 1000
 
-# Чтение из файла pcap
-arwah sniff -r capture.pcap
-
-# JSON вывод
-arwah sniff --json
-
-# Отладочный режим
-arwah sniff --debugging
+# Explicit scanning mode
+arwah --scan -a target.com -p 1-65535 --greppable
 ```
 
-### 3. Комбинированный режим (по умолчанию)
+### Packet Sniffing (Requires root privileges)
 ```bash
-# Сначала сканирование, затем сниффинг
-arwah --both
+# Basic packet sniffing
+sudo arwah --sniff
 
-# Только сканирование (режим по умолчанию для обратной совместимости)
-arwah
+# Sniff specific interface (will use default settings)
+sudo arwah --sniff
 ```
 
-## Примеры использования
-
-### Базовое сканирование сети
+### Combined Mode
 ```bash
-# Быстрое сканирование локальной сети
-arwah scan -a 192.168.1.0/24
+# Scan then sniff
+sudo arwah --scan --sniff -a 192.168.1.1 -p 80,443
 
-# Сканирование с высокой скоростью
-arwah scan -a 192.168.1.1 -b 5000 -t 1000
+# Quick scan and monitor traffic
+sudo arwah -s -n -a target.com -p 80,443,8080
 ```
 
-### Анализ сетевого трафика
+## Scanning Options (RustScan)
+
+- `-a, --addresses`: Target IP addresses or hostnames
+- `-p, --ports`: Specific ports to scan
+- `-r, --range`: Port range (e.g., 1-1000)
+- `-b, --batch-size`: Batch size for scanning (default: 4500)
+- `-t, --timeout`: Timeout in milliseconds (default: 1500)
+- `--tries`: Number of tries (default: 1)
+- `-u, --ulimit`: Set ulimit
+- `--scan-order`: Scan order (serial/random)
+- `--scripts`: Script execution (none/default/custom)
+- `--udp`: UDP scan
+- `-g, --greppable`: Greppable output
+- `--no-banner`: Disable banner
+- `-e, --exclude-ports`: Exclude specific ports
+- `-x, --exclude-addresses`: Exclude specific addresses
+
+## Sniffing Options (Sniffglue)
+
+When using `--sniff` mode, arwah uses default sniffing settings:
+- Interface: Default network interface
+- Threads: Number of CPU cores
+- Verbosity: Level 1
+- Format: Compact output
+- No promiscuous mode
+- No file reading
+
+## Notes
+
+1. **Root Privileges**: Packet sniffing requires root/administrator privileges
+2. **Default Behavior**: If no mode flags are specified, arwah defaults to scanning mode
+3. **Combined Usage**: Both modes can run sequentially with `--scan --sniff`
+4. **Original Features**: All original RustScan and Sniffglue features are preserved
+
+## Quick Reference
+
+| Command | Description |
+|---------|-------------|
+| `arwah -a IP` | Default scan mode |
+| `arwah --scan -a IP` | Explicit scan mode |
+| `sudo arwah --sniff` | Sniff mode only |
+| `sudo arwah -s -n -a IP` | Combined mode |
+
+## Help
+
 ```bash
-# Мониторинг HTTP трафика
-arwah sniff -v 2
-
-# Сохранение в JSON для дальнейшего анализа
-arwah sniff --json > network_analysis.json
-
-# Анализ файла захвата
-arwah sniff -r suspicious_traffic.pcap --debugging
+arwah --help
 ```
 
-### Комплексный анализ безопасности
-```bash
-# Полный анализ: сканирование + мониторинг
-arwah --both
-
-# Сканирование с последующим мониторингом найденных сервисов
-arwah scan -a target.com -s default && arwah sniff -i eth0
-```
-
-## Опции сканирования (Scan)
-
-- `-a, --addresses <ADDRESSES>`: IP адреса или диапазоны для сканирования
-- `-p, --ports <PORTS>`: Порты для сканирования
-- `-b, --batch-size <BATCH_SIZE>`: Размер пакета для сканирования
-- `-t, --timeout <TIMEOUT>`: Таймаут в миллисекундах
-- `-s, --scripts <SCRIPTS>`: Скрипты для выполнения
-- `--greppable`: Вывод в формате, удобном для grep
-- `--accessible`: Доступный вывод для людей с ограниченными возможностями
-
-## Опции сниффинга (Sniff)
-
-- `-i, --interface <INTERFACE>`: Сетевой интерфейс для прослушивания
-- `-r, --read <FILE>`: Чтение из файла pcap
-- `-v, --verbose <LEVEL>`: Уровень детализации (0-4)
-- `--json`: Вывод в формате JSON
-- `--debugging`: Отладочный режим с подробной информацией
-- `--threads <THREADS>`: Количество потоков для обработки
-- `--promisc`: Включить promiscuous режим
-
-## Интеграция и автоматизация
-
-### Использование в скриптах
-```bash
-#!/bin/bash
-# Автоматический анализ безопасности сети
-
-echo "Сканирование сети..."
-arwah scan -a $1 --greppable > scan_results.txt
-
-echo "Мониторинг трафика в течение 60 секунд..."
-timeout 60 arwah sniff --json > traffic_analysis.json
-
-echo "Анализ завершен. Результаты в scan_results.txt и traffic_analysis.json"
-```
-
-### Docker использование
-```bash
-# Сканирование
-docker run -it arwah scan -a 192.168.1.1
-
-# Сниффинг (требует привилегированный режим)
-docker run --privileged -it arwah sniff
-```
-
-## Безопасность и разрешения
-
-- Для сниффинга пакетов требуются права администратора
-- Используйте sandbox режим для повышения безопасности
-- Опция `--insecure-disable-seccomp` отключает защиту (не рекомендуется)
-
-## Производительность
-
-### Оптимизация сканирования
-- Увеличьте `--batch-size` для более быстрого сканирования
-- Используйте `--ulimit` для увеличения лимита файловых дескрипторов
-- Настройте `--timeout` в зависимости от задержки сети
-
-### Оптимизация сниффинга
-- Используйте `--threads` для многопоточной обработки
-- Фильтруйте трафик с помощью уровня детализации `-v`
-- Для анализа больших файлов используйте `--threads 1`
-
-## Форматы вывода
-
-### Сканирование
-- Обычный: `192.168.1.1 -> [22,80,443]`
-- Greppable: `192.168.1.1:22`, `192.168.1.1:80`, `192.168.1.1:443`
-
-### Сниффинг
-- Compact: Краткая информация о пакетах
-- Debugging: Подробная техническая информация
-- JSON: Структурированные данные для автоматической обработки
-
-## Устранение неполадок
-
-### Общие проблемы
-1. **Нет разрешений**: Запустите с sudo для сниффинга
-2. **Интерфейс не найден**: Проверьте доступные интерфейсы с `ip link`
-3. **Высокая загрузка CPU**: Уменьшите batch-size или количество потоков
-4. **Таймауты**: Увеличьте значение timeout для медленных сетей
-
-### Отладка
-```bash
-# Включить подробное логирование
-RUST_LOG=debug arwah sniff
-
-# Проверить доступные интерфейсы
-arwah sniff --help
-```
+For detailed options and examples.

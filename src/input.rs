@@ -102,6 +102,12 @@ pub struct ArwahOpts {
 
     #[arg(long)]
     pub udp: bool,
+
+    #[arg(short = 's', long = "scan", help = "Enable scanning mode (RustScan functionality)")]
+    pub scan: bool,
+
+    #[arg(short = 'n', long = "sniff", help = "Enable sniffing mode (Sniffglue functionality)")]
+    pub sniff: bool,
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -123,6 +129,8 @@ pub struct ArwahConfig {
     exclude_ports: Option<Vec<u16>>,
     exclude_addresses: Option<Vec<String>>,
     udp: Option<bool>,
+    scan: Option<bool>,
+    sniff: Option<bool>,
 }
 
 #[cfg(not(tarpaulin_include))]
@@ -154,7 +162,7 @@ impl ArwahOpts {
                 )+
             }
         }
-        arwah_merge_required!(addresses, greppable, accessible, batch_size, timeout, tries, scan_order, scripts, command, udp);
+        arwah_merge_required!(addresses, greppable, accessible, batch_size, timeout, tries, scan_order, scripts, command, udp, scan, sniff);
     }
 
     fn arwah_merge_optional(&mut self, config: &ArwahConfig) {
@@ -198,6 +206,8 @@ impl Default for ArwahOpts {
             exclude_ports: None,
             exclude_addresses: None,
             udp: false,
+            scan: false,
+            sniff: false,
         }
     }
 }

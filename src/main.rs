@@ -3,14 +3,13 @@
 #![allow(clippy::doc_markdown, clippy::if_not_else, clippy::non_ascii_literal)]
 
 use anyhow::{Context, Result};
-use clap::{CommandFactory, Parser, Subcommand};
 use colorful::{Color, Colorful};
-use env_logger::Env;
+
 use futures::executor::block_on;
 use log::{debug, info, warn};
 use std::collections::HashMap;
 use std::convert::TryInto;
-use std::io::{self, IsTerminal, stdout};
+use std::io::{self, IsTerminal};
 use std::net::IpAddr;
 use std::string::ToString;
 use std::sync::{Arc, Mutex, mpsc};
@@ -20,7 +19,7 @@ use std::time::Duration;
 use arwah::address::arwah_parse_addresses;
 use arwah::benchmark::benchmark::{ArwahBenchmark, ArwahNamedTimer};
 use arwah::centrifuge;
-use arwah::cli::ArwahArgs;
+
 use arwah::fmt as ArwahFmt;
 use arwah::input::{self, ArwahConfig, ArwahOpts, ArwahScriptsRequired};
 use arwah::link::ArwahDataLink;
@@ -38,7 +37,6 @@ extern crate dirs;
 const ARWAH_DEFAULT_FILE_DESCRIPTORS_LIMIT: u64 = 8000;
 const ARWAH_AVERAGE_BATCH_SIZE: u16 = 3000;
 
-#[macro_use]
 extern crate log;
 
 #[allow(clippy::items_after_statements, clippy::needless_raw_string_hashes)]
@@ -79,11 +77,12 @@ fn arwah_opening(opts: &ArwahOpts) {
                 ¶¶¶¶¶¶¶¶¶¶      ¶¶¶¶¶¶¶¶¶¶
                  ¶¶¶¶¶¶¶¶       ¶¶¶¶¶¶¶¶
                 ¶¶¶¶¶¶¶¶¶       ¶¶¶¶¶¶¶¶¶
-                ¶¶¶¶¶¶¶¶¶ ¶¶¶¶¶ ¶¶¶¶¶¶¶¶¶
+                  ¶¶¶¶¶¶¶ ¶¶¶¶¶ ¶¶¶¶¶¶¶¶¶
                 ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶
                 ¶¶¶  ¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶¶  ¶¶¶
                  ¶¶  ¶¶¶¶  ¶¶¶¶¶  ¶¶¶¶  ¶¶
                      ¶¶¶¶  ¶¶¶¶¶  ¶¶¶¶
+                     
 
                                                    mm        
       @@                                           @@@        
@@ -98,12 +97,13 @@ fn arwah_opening(opts: &ArwahOpts) {
                                                              
 "#;
     println!("{}", s.gradient(Color::Green).bold());
-    let info = r#"________________________________________
-                        :          Abu Ayyub Al Ansar          :
-                        :           Abu Ali Al Ansar           :
-                        :           Tawheed Network!           :
-                        :            Free Palestine!           :
-                        --------------------------------------"#;
+    let info = r#"
+          ________________________________________
+          :           Tawheed Network!           :
+          :            Free Palestine!           :
+          ----------------------------------------
+             
+             "#;
     println!("{}", info.gradient(Color::Yellow).bold());
     opening!();
     let config_path = opts.config_path.clone().unwrap_or_else(input::arwah_default_config_path);
@@ -151,54 +151,54 @@ fn arwah_inter_batch_size(opts: &ArwahOpts, ulimit: u64) -> u16 {
     batch_size.try_into().expect("[ ETA ]: Couldn't fit the batch size into a u16.")
 }
 
-fn arwah_sniffer() -> Result<()> {
-    env_logger::init_from_env(Env::default().default_filter_or("arwah=warn"));
-    let mut args = ArwahArgs::parse();
+fn arwah_sniffer(opts: &ArwahOpts) -> Result<()> {
+    // Use default settings for sniffing mode
+    let promisc = false;
+    let debugging = false;
+    let json = false;
+    let verbose = 1;
+    let read = false;
+    let threads_count = num_cpus::get();
+    let insecure_disable_seccomp = false;
 
-    if let Some(shell) = args.gen_completions {
-        clap_complete::generate(shell, &mut ArwahArgs::command(), "arwah", &mut stdout());
-        return Ok(());
-    }
-    sandbox::service::arwah_activate_stage_o(args.insecure_disable_seccomp).context("[ ETA ]: Failed to init sandbox stage o")?;
+    sandbox::service::arwah_activate_stage_o(insecure_disable_seccomp).context("[ ETA ]: Failed to init sandbox stage o")?;
 
-    let device = if let Some(dev) = args.device { dev } else { sniff::arwah_default_interface().context("[ ETA [: Failed to get default interface")? };
+    let device = sniff::arwah_default_interface().context("[ ETA ]: Failed to get default interface")?;
 
-    let layout = if args.json {
+    let layout = if json {
         ArwahFmt::ArwahLayout::Json
-    } else if args.debugging {
+    } else if debugging {
         ArwahFmt::ArwahLayout::Debugging
     } else {
         ArwahFmt::ArwahLayout::Compact
     };
 
     let colors = io::stdout().is_terminal();
-    let config = ArwahFmt::ArwahConfig::arwah_new(layout, args.verbose, colors);
+    let fmt_config = ArwahFmt::ArwahConfig::arwah_new(layout, verbose, colors);
 
-    let cap = if args.read {
-        if args.threads.is_none() {
-            debug!("[ ETA ]: Setting thread default to 1 due to -r");
-            args.threads = Some(1);
-        }
-
+    let cap = if read {
         let cap = sniff::arwah_open_file(&device)?;
         eprintln!("[ ETA ]: Reading from file: {device:?}");
         cap
     } else {
-        let cap = sniff::arwah_open(&device, &sniff::ArwahConfig { promisc: args.promisc, immediate_mode: true })?;
+        let cap = sniff::arwah_open(&device, &sniff::ArwahConfig { promisc, immediate_mode: true })?;
 
-        let verbosity = config.arwah_filter().verbosity;
+        let verbosity = fmt_config.arwah_filter().verbosity;
         eprintln!("[ ETA ]: Listening on device: {device:?}, verbosity {verbosity}/4");
         cap
     };
-    let threads = args.threads.unwrap_or_else(num_cpus::get);
-    debug!("[ ETA ]: Using {threads} threads");
+
+    debug!("[ ETA ]: Using {threads_count} threads");
+    if !opts.greppable && !opts.accessible && !opts.no_banner {
+        arwah_opening(&opts);
+    }
     let datalink = ArwahDataLink::arwah_from_linktype(cap.arwah_datalink())?;
-    let filter = config.arwah_filter();
+    let filter = fmt_config.arwah_filter();
     let (tx, rx) = mpsc::sync_channel(256);
     let cap = Arc::new(Mutex::new(cap));
-    sandbox::service::arwah_activate_stage_t(args.insecure_disable_seccomp).context("[ ETA ]: Failed to init sandbox stage2")?;
+    sandbox::service::arwah_activate_stage_t(insecure_disable_seccomp).context("[ ETA ]: Failed to init sandbox stage2")?;
 
-    for _ in 0..threads {
+    for _ in 0..threads_count {
         let cap = cap.clone();
         let datalink = datalink.clone();
         let filter = filter.clone();
@@ -213,7 +213,9 @@ fn arwah_sniffer() -> Result<()> {
                 if let Ok(Some(packet)) = packet {
                     let packet = centrifuge::service::arwah_parse(&datalink, &packet.data);
                     if filter.arwah_matches(&packet) {
-                        tx.send(packet).unwrap()
+                        if tx.send(packet).is_err() {
+                            break;
+                        }
                     }
                 } else {
                     debug!("[ ETA ]: End of packet stream, shutting down reader thread");
@@ -223,7 +225,7 @@ fn arwah_sniffer() -> Result<()> {
         });
     }
     drop(tx);
-    let format = config.arwah_format();
+    let format = fmt_config.arwah_format();
     for packet in rx.iter() {
         format.arwah_print(packet);
     }
@@ -237,12 +239,38 @@ fn main() -> Result<()> {
     let _ = ansi_term::enable_ansi_support();
 
     env_logger::init();
-    let mut benchmarks = ArwahBenchmark::arwah_init();
-    let mut arwah_bench = ArwahNamedTimer::arwah_start("RustScan");
     let mut opts: ArwahOpts = ArwahOpts::arwah_read();
     let config = ArwahConfig::arwah_read(opts.config_path.clone());
     opts.arwah_merge(&config);
     debug!("[ ETA ]: Main() `opts` arguments are {opts:?}");
+
+    // Determine operation mode based on flags
+    match (opts.scan, opts.sniff) {
+        (true, true) => {
+            // Both scanning and sniffing requested
+            arwah_scan_mode(&opts)?;
+            println!("\n[ ETA ]: Scanning completed. Starting packet sniffing...");
+            arwah_sniffer(&opts)?;
+        }
+        (true, false) => {
+            // Only scanning
+            arwah_scan_mode(&opts)?;
+        }
+        (false, true) => {
+            // Only sniffing
+            arwah_sniffer(&opts)?;
+        }
+        (false, false) => {
+            // Default mode - scanning (preserve original behavior)
+            arwah_scan_mode(&opts)?;
+        }
+    }
+    Ok(())
+}
+
+fn arwah_scan_mode(opts: &ArwahOpts) -> Result<()> {
+    let mut benchmarks = ArwahBenchmark::arwah_init();
+    let mut arwah_bench = ArwahNamedTimer::arwah_start("RustScan");
 
     let scripts_to_run: Vec<ArwahScriptFile> = match arwah_init_scripts(&opts.scripts) {
         Ok(scripts_to_run) => scripts_to_run,
@@ -259,7 +287,7 @@ fn main() -> Result<()> {
     let ips: Vec<IpAddr> = arwah_parse_addresses(&opts);
 
     if ips.is_empty() {
-        warning!("[ ETA ]: No IPs could be resolved, aborting scan.", opts.greppable, opts.accessible);
+        warning!("No IPs could be resolved, aborting scan.", opts.greppable, opts.accessible);
         std::process::exit(1);
     }
 
@@ -275,9 +303,9 @@ fn main() -> Result<()> {
         Duration::from_millis(opts.timeout.into()),
         opts.tries,
         opts.greppable,
-        ArwahStrategy::arwah_pick(&opts.range, opts.ports, opts.scan_order),
+        ArwahStrategy::arwah_pick(&opts.range, opts.ports.clone(), opts.scan_order),
         opts.accessible,
-        opts.exclude_ports.unwrap_or_default(),
+        opts.exclude_ports.clone().unwrap_or_default(),
         opts.udp,
     );
     debug!("Scanner finished building: {scanner:?}");
@@ -346,7 +374,6 @@ fn main() -> Result<()> {
     benchmarks.arwah_push(arwah_bench);
     debug!("[ ETA ]: Benchmarks raw {benchmarks:?}");
     info!("[ ETA ]: {}", benchmarks.arwah_summary());
-    arwah_sniffer()?;
     Ok(())
 }
 

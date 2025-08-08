@@ -82,3 +82,7 @@ doc = false
 
 [package.metadata]
 cargo-fuzz = true
+
+
+[workspace]
+members = ["shadow"]

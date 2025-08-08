@@ -8,7 +8,6 @@ use std::sync::Arc;
 
 use crate::network::arp::ArwahARP;
 use crate::network::dhcp::ArwahDhcp;
-use crate::network::tcp::*;
 use crate::network::{arp, cjdns, http, icmp, ipv4, ipv6, tcp, tls, udp};
 use crate::network::{ether::ArwahEther, ip::ArwahIPHeader, raw::ArwahRaw, service::ArwahNoiseLevel};
 

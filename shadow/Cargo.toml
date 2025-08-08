@@ -1,0 +1,20 @@
+[package]
+name = "shadow"
+version = "0.1.0"
+edition = "2024"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies.arwah]
+path = ".."
+
+[dependencies]
+libfuzzer-sys = "0.4.10"
+
+
+[[bin]]
+name = "shadow"
+path = "src/shadow.rs"
+test = false
+doc = false
