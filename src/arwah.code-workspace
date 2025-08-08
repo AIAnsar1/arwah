@@ -1,0 +1,13 @@
+{
+	"folders": [
+		{
+			"name": "arwah",
+			"path": ".."
+		},
+		{
+			"name": "pcaps",
+			"path": "../../../../Downloads/sniffglue-main/pcaps"
+		}
+	],
+	"settings": {}
+}

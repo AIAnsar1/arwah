@@ -129,14 +129,10 @@ fn arwah_inter_batch_size(opts: &ArwahOpts, ulimit: u64) -> u16 {
     let mut batch_size: u64 = opts.batch_size.into();
 
     if ulimit < batch_size {
-        warning!("[ ETA ]: File limit is lower than default batch size. Consider upping with --ulimit. May cause harm to sensitive servers", opts.greppable, opts.accessible);
+        warning!("File limit is lower than default batch size. Consider upping with --ulimit. May cause harm to sensitive servers", opts.greppable, opts.accessible);
 
         if ulimit < ARWAH_AVERAGE_BATCH_SIZE.into() {
-            warning!(
-                "[ ETA ]: Your file limit is very small, which negatively impacts RustScan's speed. Use the Docker image, or up the Ulimit with '--ulimit 5000'. ",
-                opts.greppable,
-                opts.accessible
-            );
+            warning!("Your file limit is very small, which negatively impacts Arwah's speed. Use the Docker image, or up the Ulimit with '--ulimit 5000'. ", opts.greppable, opts.accessible);
             info!("[ ETA ]: Halving batch_size because ulimit is smaller than average batch size");
             batch_size = ulimit / 2;
         } else if ulimit > ARWAH_DEFAULT_FILE_DESCRIPTORS_LIMIT {
